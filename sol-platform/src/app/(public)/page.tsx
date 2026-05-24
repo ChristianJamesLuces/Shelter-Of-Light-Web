@@ -42,7 +42,7 @@ export default async function Home() {
       <section className="bg-sol-yellow grid grid-cols-3 divide-x divide-sol-dark/15 border-y border-sol-dark">
         {[
           ['400+', 'Cats rescued'],
-          ['18', 'Dogs rescued'],
+          ['23', 'Dogs rescued'],
           ['5 yrs', 'Of shelter love']
         ].map(([stat, label], idx) => (
           <div key={idx} className="py-6 text-center">
