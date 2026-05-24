@@ -12,6 +12,8 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
+  // Track all existing photos to ensure none are left behind in the bucket
+  const [existingPhotos, setExistingPhotos] = useState<any[]>([]);
   const [currentPhotoUrl, setCurrentPhotoUrl] = useState<string | null>(null);
   const [newPhotoFile, setNewPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -25,6 +27,40 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
     description: '',
     adoption_status: ''
   });
+
+  // Helper function to safely extract the storage path from a Supabase public URL
+  const getFilePathFromUrl = (url: string) => {
+    try {
+      console.log("Parsing URL:", url); // 👀 See what the raw URL looks like
+      
+      // Look for the standard Supabase storage path pattern
+      if (url.includes('/object/public/')) {
+        // Splits after '/public/{bucket_name}/' to grab the exact storage path
+        const parts = url.split('/object/public/animal_photos/');
+        if (parts.length > 1) {
+          const path = decodeURIComponent(parts[1].split('?')[0]);
+          console.log("Smarter match extracted path:", path);
+          return path;
+        }
+      }
+
+      // Fallback if your URL format is different
+      const parts = url.split('/animal_photos/');
+      if (parts.length > 1) {
+        const path = decodeURIComponent(parts[1].split('?')[0]);
+        console.log("Legacy split extracted path:", path);
+        return path;
+      }
+      
+      const fallback = url.split('/').pop()?.split('?')[0];
+      const decodedFallback = decodeURIComponent(fallback || '');
+      console.log("Fallback extracted path:", decodedFallback);
+      return decodedFallback;
+    } catch (error) {
+      console.error("Failed to parse file path:", error);
+      return null;
+    }
+  };
 
   useEffect(() => {
     async function fetchAnimal() {
@@ -45,14 +81,17 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
           adoption_status: data.adoption_status
         });
         
-        if (data.animal_photos && data.animal_photos.length > 0) {
-          setCurrentPhotoUrl(data.animal_photos[0].file_url);
+        if (data.animal_photos) {
+          setExistingPhotos(data.animal_photos);
+          if (data.animal_photos.length > 0) {
+            setCurrentPhotoUrl(data.animal_photos[0].file_url);
+          }
         }
       }
       setIsLoading(false);
     }
     fetchAnimal();
-  }, [params.id]);
+  }, [params.id, supabase]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -71,7 +110,58 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
     setIsSaving(true);
 
     try {
-      await supabase
+      // 1. Handle Photo Update First (If a new photo is uploaded)
+      if (newPhotoFile) {
+        if (existingPhotos.length > 0) {
+          const fileNamesToRemove = existingPhotos
+            .map(photo => getFilePathFromUrl(photo.file_url))
+            .filter((path): path is string => path !== null && path !== '');
+
+          // 👀 DEBUGGING LOGS: Look at your browser console to see what these print!
+          console.log("Existing photos array from DB:", existingPhotos);
+          console.log("Extracted paths sent to Supabase for deletion:", fileNamesToRemove);
+
+          if (fileNamesToRemove.length > 0) {
+            const { data: removeData, error: removeError } = await supabase.storage
+              .from('animal_photos')
+              .remove(fileNamesToRemove);
+              
+            if (removeError) {
+              // We now throw this error so you can see exactly why Supabase rejected it
+              throw new Error(`Storage Deletion Failed: ${removeError.message}`);
+            }
+            
+            console.log("Supabase storage removal response:", removeData);
+          }
+        }
+
+        // Upload the new photo
+        const fileExt = newPhotoFile.name.split('.').pop();
+        const fileName = `${params.id}-${Math.random()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('animal_photos')
+          .upload(fileName, newPhotoFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from('animal_photos')
+          .getPublicUrl(fileName);
+
+        await supabase.from('animal_photos').delete().eq('animal_id', params.id);
+        
+        const { error: insertError } = await supabase.from('animal_photos').insert([{
+          animal_id: params.id,
+          file_url: publicUrlData.publicUrl,
+          is_primary: true
+        }]);
+
+        if (insertError) throw insertError;
+      }
+
+      // 2. Update text data
+      const { error: updateError } = await supabase
         .from('animals')
         .update({
           name: formData.name,
@@ -84,51 +174,50 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
         })
         .eq('animal_id', params.id);
 
-      if (newPhotoFile) {
-        if (currentPhotoUrl) {
-          const oldFileName = currentPhotoUrl.split('/').pop()?.split('?')[0];
-          if (oldFileName) await supabase.storage.from('animal_photos').remove([oldFileName]);
-        }
-
-        const fileExt = newPhotoFile.name.split('.').pop();
-        const fileName = `${params.id}-${Math.random()}.${fileExt}`;
-        
-        await supabase.storage.from('animal_photos').upload(fileName, newPhotoFile);
-        const { data: publicUrlData } = supabase.storage.from('animal_photos').getPublicUrl(fileName);
-
-        await supabase.from('animal_photos').delete().eq('animal_id', params.id);
-        await supabase.from('animal_photos').insert([{
-          animal_id: params.id,
-          file_url: publicUrlData.publicUrl,
-          is_primary: true
-        }]);
-      }
+      if (updateError) throw updateError;
 
       alert('Profile updated!');
       router.push('/dashboard');
-    } catch (error) {
-      console.error(error);
-      alert('Error updating profile.');
+    } catch (error: any) {
+      console.error("Full error details:", error);
+      alert(`Error updating profile: ${error.message || error}`);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to delete ${formData.name}?`)) return;
+    if (!confirm(`Are you sure you want to delete ${formData.name}? This action cannot be undone.`)) return;
 
     try {
-      if (currentPhotoUrl) {
-        const oldFileName = currentPhotoUrl.split('/').pop()?.split('?')[0];
-        if (oldFileName) await supabase.storage.from('animal_photos').remove([oldFileName]);
+      // 1. Delete ALL associated photos from the storage bucket first
+      if (existingPhotos.length > 0) {
+        const fileNamesToRemove = existingPhotos
+          .map(photo => getFilePathFromUrl(photo.file_url))
+          .filter((path): path is string => path !== null && path !== '');
+
+        console.log("Deleting animal. Paths sent to bucket deletion:", fileNamesToRemove);
+
+        if (fileNamesToRemove.length > 0) {
+          const { error: storageError } = await supabase.storage
+            .from('animal_photos')
+            .remove(fileNamesToRemove);
+
+          if (storageError) {
+            throw new Error(`Storage Deletion Failed: ${storageError.message}`);
+          }
+        }
       }
 
-      await supabase.from('animals').delete().eq('animal_id', params.id);
-      alert('Animal removed.');
+      // 2. Safely delete the database record
+      const { error: dbError } = await supabase.from('animals').delete().eq('animal_id', params.id);
+      if (dbError) throw dbError;
+
+      alert('Animal and all associated photos removed.');
       router.push('/dashboard');
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Error deleting animal.');
+      alert(`Error deleting animal: ${error.message || error}`);
     }
   };
 
@@ -138,7 +227,7 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
     <div className="max-w-3xl mx-auto pb-12 p-8">
       <div className="flex justify-between items-center mb-6">
         <Link href="/animals" className="text-sm text-sol-dark/60 hover:text-sol-yellow transition-colors">&larr; Back</Link>
-        <button onClick={handleDelete} className="text-xs bg-red-100 text-red-700 px-4 py-2 rounded-lg font-bold hover:bg-red-200">Delete</button>
+        <button onClick={handleDelete} className="text-xs bg-red-100 text-red-700 px-4 py-2 rounded-lg font-bold hover:bg-red-200 transition-colors">Delete</button>
       </div>
 
       <h1 className="font-serif text-3xl text-sol-dark font-bold mb-8">Edit {formData.name}</h1>
@@ -149,7 +238,7 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
           <div className="flex items-center gap-6">
             <div className="w-32 h-32 rounded-xl border-2 border-sol-dark/10 overflow-hidden bg-[#f8f7f2]">
               {(photoPreview || currentPhotoUrl) ? (
-                <img src={photoPreview || currentPhotoUrl!} className="w-full h-full object-cover" />
+                <img src={photoPreview || currentPhotoUrl!} alt="Preview" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-sol-dark/30">No Photo</div>
               )}
@@ -196,7 +285,7 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
           </div>
         </div>
 
-        <button type="submit" disabled={isSaving} className="w-full bg-sol-dark text-sol-yellow py-3 rounded-lg font-bold hover:bg-black transition-colors">
+        <button type="submit" disabled={isSaving} className="w-full bg-sol-dark text-sol-yellow py-3 rounded-lg font-bold hover:bg-black transition-colors disabled:opacity-50">
           {isSaving ? 'Saving...' : 'Save Changes'}
         </button>
       </form>
