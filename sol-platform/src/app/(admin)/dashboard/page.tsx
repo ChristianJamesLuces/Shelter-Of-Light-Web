@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function DashboardPage() {
   return (
     <div className="max-w-5xl mx-auto">
@@ -7,9 +9,13 @@ export default function DashboardPage() {
           <h1 className="font-serif text-2xl text-sol-dark font-bold">Dashboard</h1>
           <p className="text-xs text-sol-dark/50 mt-1">Good morning, Rose</p>
         </div>
-        <button className="bg-sol-yellow text-sol-dark px-4 py-2 rounded-full text-xs font-bold hover:bg-yellow-400 transition-colors shadow-sm flex items-center gap-1">
+        {/* Updated Button: Now a Next.js Link pointing to our new route */}
+        <Link 
+          href="/animals/new" 
+          className="bg-sol-yellow text-sol-dark px-4 py-2 rounded-full text-xs font-bold hover:bg-yellow-400 transition-colors shadow-sm flex items-center gap-1"
+        >
           <i className="ti ti-plus text-sm"></i> Add animal
-        </button>
+        </Link>
       </div>
 
       {/* KPI Cards */}
