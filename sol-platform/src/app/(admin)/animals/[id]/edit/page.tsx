@@ -224,7 +224,7 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
   if (isLoading) return <div className="p-8 text-center text-sol-dark/50">Loading...</div>;
 
   return (
-    <div className="max-w-3xl mx-auto pb-12 p-8">
+    <div className="max-w-3xl mx-auto pb-12">
       <div className="flex justify-between items-center mb-6">
         <Link href="/animals" className="text-sm text-sol-dark/60 hover:text-sol-yellow transition-colors">&larr; Back</Link>
         <button onClick={handleDelete} className="text-xs bg-red-100 text-red-700 px-4 py-2 rounded-lg font-bold hover:bg-red-200 transition-colors">Delete</button>

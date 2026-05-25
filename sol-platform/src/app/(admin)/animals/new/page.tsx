@@ -106,7 +106,7 @@ export default function AddAnimalPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto pb-12 p-8">
+    <div className="max-w-3xl mx-auto pb-12">
       <Link href="/dashboard" className="text-sm text-sol-dark/60 hover:text-sol-yellow mb-6 inline-block transition-colors">
         &larr; Back to Dashboard
       </Link>

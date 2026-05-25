@@ -32,7 +32,7 @@ export default function AnimalsInventoryPage() {
   }, []);
 
   return (
-    <div className="max-w-6xl mx-auto p-8">
+    <div className="max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>

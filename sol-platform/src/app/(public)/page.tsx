@@ -15,21 +15,21 @@ export default async function Home() {
       <section className="bg-sol-dark pt-24 pb-12 px-6 text-center relative overflow-hidden">
         <div className="max-w-3xl mx-auto relative z-10">
           <div className="inline-block bg-sol-yellow/10 border border-sol-yellow/30 text-sol-yellow text-[10px] tracking-widest px-3 py-1 rounded-full mb-6 font-bold">
-            METRO MANILA · CAT RESCUE SHELTER
+            METRO MANILA · ANIMAL RESCUE SHELTER
           </div>
           
           <h1 className="font-serif text-5xl md:text-6xl font-bold text-white leading-tight mb-6">
-            Every cat deserves <br className="hidden sm:block" />
+            Every animal deserves <br className="hidden sm:block" />
             a <em className="text-sol-yellow italic pr-2">loving</em> home
           </h1>
           
           <p className="text-white/60 text-sm md:text-base max-w-md mx-auto mb-10 leading-relaxed">
-            We rescue, rehabilitate, and rehome cats across Metro Manila. Find your forever companion today.
+            We rescue, rehabilitate, and rehome animals across Metro Manila. Find your forever companion today.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/animals" className="bg-sol-yellow text-sol-dark px-8 py-3 rounded-full font-bold text-sm hover:bg-yellow-400 transition-colors">
-              Meet our cats &rarr;
+            <Link href="/adopt" className="bg-sol-yellow text-sol-dark px-8 py-3 rounded-full font-bold text-sm hover:bg-yellow-400 transition-colors">
+              Meet Our Animals &rarr;
             </Link>
             <Link href="/about" className="border border-white/20 text-white/80 px-8 py-3 rounded-full font-medium text-sm hover:bg-white/10 transition-colors">
               How to adopt
@@ -56,7 +56,7 @@ export default async function Home() {
       <section className="bg-sol-cream py-16 px-6 lg:px-12 max-w-7xl mx-auto w-full">
         <div className="flex justify-between items-end mb-8">
           <h2 className="font-serif text-3xl font-bold text-sol-dark">Ready to be adopted</h2>
-          <Link href="/animals" className="text-sm text-sol-dark/60 hover:text-sol-dark font-medium transition-colors">
+          <Link href="/adopt" className="text-sm text-sol-dark/60 hover:text-sol-dark font-medium transition-colors">
             View all &rarr;
           </Link>
         </div>
@@ -71,7 +71,7 @@ export default async function Home() {
             {featuredAnimals.map((animal) => {
               const photoUrl = animal.primary_photo_url || 'https://via.placeholder.com/400x400?text=No+Photo';
               return (
-                <Link href={`/animals/${animal.animal_id}`} key={animal.animal_id} className="group bg-white rounded-2xl border border-sol-dark/10 overflow-hidden hover:shadow-lg transition-all">
+                <Link href={`/adopt/${animal.animal_id}`} key={animal.animal_id} className="group bg-white rounded-2xl border border-sol-dark/10 overflow-hidden hover:shadow-lg transition-all">
                   <div className="aspect-square bg-sol-dark relative overflow-hidden">
                     <img src={photoUrl} alt={animal.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     <span className="absolute top-3 left-3 bg-sol-yellow text-sol-dark text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide">

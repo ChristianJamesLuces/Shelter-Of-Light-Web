@@ -11,7 +11,7 @@ export default function Navbar() {
             </Link>
           </div>
           <div className="hidden md:flex space-x-8">
-            <Link href="/animals" className="hover:text-sol-yellow transition-colors">Meet the Animals</Link>
+            <Link href="/adopt" className="hover:text-sol-yellow transition-colors">Find a Companion</Link>
             <Link href="/about" className="hover:text-sol-yellow transition-colors">About Us</Link>
           </div>
           <div>
