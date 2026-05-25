@@ -28,9 +28,9 @@ export default async function Home() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/adopt" className="bg-sol-yellow text-sol-dark px-8 py-3 rounded-full font-bold text-sm hover:bg-yellow-400 transition-colors">
-              Meet Our Animals &rarr;
-            </Link>
+            <Link href="/our-animals" className="bg-sol-yellow text-sol-dark px-8 py-3 rounded-full font-bold text-sm hover:bg-yellow-400 transition-colors">
+            Meet Our Animals &rarr;
+          </Link>
             <Link href="/about" className="border border-white/20 text-white/80 px-8 py-3 rounded-full font-medium text-sm hover:bg-white/10 transition-colors">
               How to adopt
             </Link>

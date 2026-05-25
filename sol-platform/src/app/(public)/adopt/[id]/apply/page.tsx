@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 
-export default function AdoptionForm({ params }: { params: { animalId: string } }) {
+export default function AdoptionForm({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -13,13 +13,10 @@ export default function AdoptionForm({ params }: { params: { animalId: string } 
 
   // Form State
   const [formData, setFormData] = useState({
-    // Step 1: Requirements
     reqAge: false,
     reqJob: false,
     reqLocation: false,
     reqNotGifting: false,
-    
-    // Step 2: Adopter Info
     fullName: '',
     email: '',
     phone: '',
@@ -28,8 +25,6 @@ export default function AdoptionForm({ params }: { params: { animalId: string } 
     employmentStatus: 'Regular',
     address: '',
     city: '',
-    
-    // Step 3: Environment
     environmentNotes: ''
   });
 
@@ -45,10 +40,8 @@ export default function AdoptionForm({ params }: { params: { animalId: string } 
     setError(null);
 
     try {
-      // 1. Determine if Metro Manila based on city input (simple check for demo)
       const isMetroManila = ['manila', 'quezon city', 'makati', 'taguig', 'pasig', 'pasay', 'mandaluyong', 'marikina', 'caloocan', 'valenzuela', 'malabon', 'navotas', 'muntinlupa', 'las piñas', 'parañaque', 'san juan', 'pateros'].some(c => formData.city.toLowerCase().includes(c));
 
-      // 2. Insert into adopters table
       const { data: adopterData, error: adopterError } = await supabase
         .from('adopters')
         .insert({
@@ -68,12 +61,11 @@ export default function AdoptionForm({ params }: { params: { animalId: string } 
 
       if (adopterError) throw adopterError;
 
-      // 3. Insert into applications table using the new adopter_id
       const { error: appError } = await supabase
         .from('applications')
         .insert({
           adopter_id: adopterData.adopter_id,
-          animal_id: parseInt(params.animalId),
+          animal_id: parseInt(params.id), // Updated to params.id
           status: 'submitted',
           home_environment_notes: formData.environmentNotes,
           meets_general_reqs: formData.reqAge && formData.reqJob && formData.reqLocation && formData.reqNotGifting,
@@ -97,7 +89,7 @@ export default function AdoptionForm({ params }: { params: { animalId: string } 
         <div className="bg-green-100 text-green-800 p-8 rounded-xl border border-green-200">
           <h2 className="text-3xl font-bold mb-4">Application Submitted!</h2>
           <p className="text-lg mb-8">Thank you for opening your heart to a shelter pet. Our team will review your application and reach out via email for the interview step.</p>
-          <Link href="/animals" className="bg-sol-dark text-sol-yellow px-6 py-3 rounded-md font-bold hover:bg-black transition-colors">
+          <Link href="/adopt" className="bg-sol-dark text-sol-yellow px-6 py-3 rounded-md font-bold hover:bg-black transition-colors">
             Back to Animals
           </Link>
         </div>
@@ -111,7 +103,6 @@ export default function AdoptionForm({ params }: { params: { animalId: string } 
         <h1 className="text-3xl font-bold text-sol-dark mb-2">Adoption Application</h1>
         <p className="text-gray-600 mb-8">Step {step} of 3</p>
 
-        {/* Progress Bar */}
         <div className="w-full bg-gray-200 rounded-full h-2.5 mb-8">
           <div className="bg-sol-yellow h-2.5 rounded-full transition-all duration-300" style={{ width: `${(step / 3) * 100}%` }}></div>
         </div>
@@ -120,7 +111,6 @@ export default function AdoptionForm({ params }: { params: { animalId: string } 
 
         <form onSubmit={step === 3 ? handleSubmit : (e) => { e.preventDefault(); setStep(step + 1); }}>
           
-          {/* STEP 1: REQUIREMENTS */}
           {step === 1 && (
             <div className="space-y-4">
               <h2 className="text-xl font-bold mb-4">General Requirements</h2>
@@ -143,7 +133,6 @@ export default function AdoptionForm({ params }: { params: { animalId: string } 
             </div>
           )}
 
-          {/* STEP 2: PERSONAL INFO */}
           {step === 2 && (
             <div className="space-y-4">
               <h2 className="text-xl font-bold mb-4">Your Details</h2>
@@ -180,7 +169,6 @@ export default function AdoptionForm({ params }: { params: { animalId: string } 
             </div>
           )}
 
-          {/* STEP 3: ENVIRONMENT */}
           {step === 3 && (
             <div className="space-y-4">
               <h2 className="text-xl font-bold mb-4">Home Environment</h2>
@@ -199,7 +187,6 @@ export default function AdoptionForm({ params }: { params: { animalId: string } 
             </div>
           )}
 
-          {/* Navigation Buttons */}
           <div className="mt-8 flex justify-between pt-6 border-t">
             {step > 1 ? (
               <button type="button" onClick={() => setStep(step - 1)} className="px-6 py-2 border rounded text-gray-600 hover:bg-gray-50">Back</button>

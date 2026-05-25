@@ -14,6 +14,12 @@ export default async function AnimalProfile({ params }: { params: { id: string }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+      
+      {/* Back to Gallery Link */}
+      <Link href="/adopt" className="text-sm font-bold text-sol-dark/50 hover:text-sol-yellow mb-8 inline-block transition-colors">
+        &larr; Back to all animals
+      </Link>
+
       <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 flex flex-col md:flex-row">
         
         {/* Left Side: Photo Gallery */}
@@ -26,7 +32,7 @@ export default async function AnimalProfile({ params }: { params: { id: string }
         </div>
 
         {/* Right Side: Details & CTA */}
-        <div className="md:w-1/2 p-8 flex flex-col">
+        <div className="md:w-1/2 p-8 flex flex-col h-full">
           <div className="flex justify-between items-start mb-4">
             <h1 className="text-4xl font-bold text-sol-dark">{animal.name}</h1>
             <span className="bg-sol-yellow text-sol-dark px-3 py-1 rounded-full text-sm font-bold uppercase">
@@ -62,13 +68,23 @@ export default async function AnimalProfile({ params }: { params: { id: string }
             </div>
           </div>
 
-          {/* This button is what links to the newly moved form! */}
-          <Link 
-            href={`/adopt/${animal.animal_id}`}
-            className="w-full bg-sol-dark text-sol-yellow text-center py-4 rounded-lg font-bold text-lg hover:bg-black transition-colors shadow-md block"
-          >
-            Apply to Adopt {animal.name}
-          </Link>
+          {/* THE FIX: Action Buttons Side-by-Side */}
+          <div className="mt-auto pt-4 flex flex-col sm:flex-row gap-4">
+            <Link 
+              href={`/adopt/${animal.animal_id}/apply`}
+              className="flex-1 bg-sol-dark text-sol-yellow text-center py-4 rounded-lg font-bold text-lg hover:bg-black transition-colors shadow-md block"
+            >
+              Apply to Adopt
+            </Link>
+            
+            <Link 
+              href="/donate"
+              className="flex-1 bg-sol-yellow text-sol-dark text-center py-4 rounded-lg font-bold text-lg hover:bg-yellow-400 transition-colors shadow-md block"
+            >
+              Sponsor & Donate
+            </Link>
+          </div>
+          
         </div>
       </div>
     </div>
