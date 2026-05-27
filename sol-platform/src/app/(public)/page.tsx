@@ -43,7 +43,7 @@ export default async function Home() {
         {[
           ['400+', 'Cats rescued'],
           ['23', 'Dogs rescued'],
-          ['5 yrs', 'Of shelter love']
+          ['5 yrs', 'Of shelter light']
         ].map(([stat, label], idx) => (
           <div key={idx} className="py-6 text-center">
             <div className="font-serif text-3xl md:text-4xl font-bold text-sol-dark">{stat}</div>

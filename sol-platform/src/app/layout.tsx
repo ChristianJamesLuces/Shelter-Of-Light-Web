@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SoL | Shelter of Love",
+  title: "SoL | Shelter of Light",
   description: "Adoption and Donation Platform",
 };
 
