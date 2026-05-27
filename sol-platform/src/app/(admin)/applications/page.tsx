@@ -9,10 +9,10 @@ export default function ApplicationsPage() {
   const [applications, setApplications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // NEW: State for the search bar
+  // States for BOTH Search and Filter
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
 
-  // We added a function to manually refresh the data
   const fetchApplications = async () => {
     setIsLoading(true);
     const { data, error } = await supabase
@@ -38,16 +38,19 @@ export default function ApplicationsPage() {
     fetchApplications();
   }, []);
 
-  // NEW: Filter applications based on the search query
+  // Filter applications based on BOTH search query AND dropdown
   const filteredApplications = applications.filter((app) => {
     const applicantName = app.adopters?.full_name || '';
-    return applicantName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = applicantName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'All' || app.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
   });
 
   return (
     <div className="max-w-6xl mx-auto p-8">
-      {/* Header with Search and Refresh Button */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+      {/* Header with Search, Filter Dropdown, and Refresh Button */}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-8 gap-4">
         <div>
           <h1 className="font-serif text-2xl text-sol-dark font-bold">Applications</h1>
           <p className="text-xs text-sol-dark/50 mt-1">
@@ -55,9 +58,10 @@ export default function ApplicationsPage() {
           </p>
         </div>
         
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-          {/* NEW: Search Bar UI */}
-          <div className="relative w-full sm:w-64">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+          
+          {/* Search Bar */}
+          <div className="relative w-full sm:w-64 shrink-0">
             <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-sol-dark/40"></i>
             <input 
               type="text" 
@@ -68,9 +72,23 @@ export default function ApplicationsPage() {
             />
           </div>
 
+          {/* Status Filter Dropdown */}
+          <select 
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-sol-dark/10 bg-white focus:outline-none focus:border-sol-yellow text-sm font-medium text-sol-dark shadow-sm cursor-pointer"
+          >
+            <option value="All">All Statuses</option>
+            <option value="submitted">New</option>
+            <option value="under_review">In Review</option>
+            <option value="interview">Interview</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+
           <button 
             onClick={fetchApplications}
-            className="text-xs bg-sol-dark text-sol-yellow px-4 py-2.5 rounded-lg font-bold hover:bg-black transition-colors w-full sm:w-auto shrink-0"
+            className="text-xs bg-sol-dark text-sol-yellow px-4 py-3 sm:py-2.5 rounded-lg font-bold hover:bg-black transition-colors w-full sm:w-auto shrink-0"
           >
             Refresh Data
           </button>
@@ -93,14 +111,13 @@ export default function ApplicationsPage() {
           <div className="p-8 text-center text-sm text-sol-dark/50">No applications found.</div>
         )}
 
-        {/* NEW: Show message if search yields no results */}
         {!isLoading && applications.length > 0 && filteredApplications.length === 0 && (
           <div className="p-8 text-center text-sm text-sol-dark/50">
-            No applicants found matching "{searchQuery}".
+            No applications match your search and filter criteria.
           </div>
         )}
 
-        {/* Live Data Rows - Now mapping over filteredApplications */}
+        {/* Live Data Rows */}
         {!isLoading && filteredApplications.map((app) => {
           const dateStr = new Date(app.application_date).toLocaleDateString('en-US', { 
             month: 'short', day: 'numeric' 
@@ -128,11 +145,13 @@ export default function ApplicationsPage() {
                 <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full ${
                   app.status === 'submitted' ? 'bg-indigo-100 text-indigo-800' :
                   app.status === 'under_review' ? 'bg-amber-100 text-amber-800' :
+                  app.status === 'interview' ? 'bg-purple-100 text-purple-800' :
                   app.status === 'approved' ? 'bg-green-100 text-green-800' :
                   'bg-red-100 text-red-800'
                 }`}>
                   {app.status === 'submitted' ? 'New' : 
                    app.status === 'under_review' ? 'In Review' : 
+                   app.status === 'interview' ? 'Interview' : 
                    app.status === 'approved' ? 'Approved' : 'Rejected'}
                 </span>
               </div>

@@ -3,9 +3,12 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function ApplicationReviewPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
+  const router = useRouter(); 
+  
   const [appData, setAppData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -26,7 +29,6 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
         .single();
 
       if (data) {
-        // Automatic "In Review" trigger
         if (data.status === 'submitted') {
           const { error: updateError } = await supabase
             .from('applications')
@@ -50,18 +52,57 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
   const handleUpdateStatus = async (newStatus: string) => {
     setIsUpdating(true);
     
-    const { error } = await supabase
+    const { error: appError } = await supabase
       .from('applications')
       .update({ status: newStatus })
       .eq('application_id', params.id);
 
-    if (!error) {
+    if (!appError) {
+      if (newStatus === 'approved') {
+        const { error: animalError } = await supabase
+          .from('animals')
+          .update({ adoption_status: 'adopted' })
+          .eq('animal_id', appData.animals.animal_id);
+
+        if (animalError) {
+          console.error("Failed to update animal status:", animalError);
+          alert("Application approved, but failed to automatically update the animal's profile.");
+        } else {
+          alert(`Success! ${appData.adopters.full_name}'s application was approved and ${appData.animals.name} has officially been marked as Adopted!`);
+        }
+      }
       setAppData({ ...appData, status: newStatus });
     } else {
+      console.error(appError);
       alert("Failed to update status. Please try again.");
     }
     
     setIsUpdating(false);
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`Are you sure you want to permanently delete ${appData.adopters.full_name}'s application? This action cannot be undone.`)) return;
+
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .delete()
+        .eq('application_id', params.id);
+
+      if (error) throw error;
+
+      alert('Application deleted successfully.');
+      
+      // THE FIX: Route back, then force Next.js to clear its cache!
+      router.push('/applications');
+      router.refresh();
+      
+    } catch (error: any) {
+      console.error(error);
+      alert(`Error deleting application: ${error.message || error}`);
+      setIsUpdating(false);
+    }
   };
 
   if (isLoading) return <div className="p-12 text-center text-sol-dark/50">Loading application details...</div>;
@@ -73,17 +114,32 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
     </div>
   );
 
-  // Extract the photo URL safely
   const animalPhotoUrl = appData.animals?.animal_photos?.[0]?.file_url;
+
+  const getStatusText = (status: string) => {
+    if (status === 'under_review') return 'In Review';
+    if (status === 'interview') return 'Interview Scheduled';
+    return status;
+  };
 
   return (
     <div className="max-w-5xl mx-auto pb-12">
       
-      {/* Header & Back Button */}
       <div className="mb-8">
-        <Link href="/applications" className="text-sm font-bold text-sol-dark/50 hover:text-sol-dark transition-colors mb-4 inline-block">
-          &larr; Back to all applications
-        </Link>
+        <div className="flex justify-between items-center mb-4">
+          <Link href="/applications" className="text-sm font-bold text-sol-dark/50 hover:text-sol-dark transition-colors inline-block">
+            &larr; Back to all applications
+          </Link>
+          
+          <button 
+            onClick={handleDelete} 
+            disabled={isUpdating}
+            className="text-xs bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg font-bold hover:bg-red-100 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+          >
+            <i className="ti ti-trash"></i> Delete Application
+          </button>
+        </div>
+
         <div className="flex justify-between items-start">
           <div>
             <h1 className="font-serif text-3xl font-bold text-sol-dark">Application Review</h1>
@@ -95,18 +151,17 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
             <div className={`font-bold capitalize ${
               appData.status === 'approved' ? 'text-green-600' : 
               appData.status === 'rejected' ? 'text-red-600' : 
+              appData.status === 'interview' ? 'text-purple-600' : 
               appData.status === 'under_review' ? 'text-amber-600' :
               'text-indigo-600'
             }`}>
-              {appData.status === 'under_review' ? 'In Review' : appData.status}
+              {getStatusText(appData.status)}
             </div>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* LEFT COLUMN: Details */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-sol-dark/10">
             <h2 className="text-lg font-bold text-sol-dark border-b border-sol-dark/5 pb-3 mb-4">Applicant Profile</h2>
@@ -128,47 +183,43 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Animal & Actions */}
         <div className="space-y-6">
-          
           <div className="bg-sol-dark text-white p-6 rounded-xl shadow-sm flex flex-col">
             <div className="text-[10px] uppercase tracking-widest text-white/50 font-bold mb-3">Applying For</div>
             
-            {/* THE RESTORED PHOTO */}
             <div className="h-48 w-full bg-black/30 rounded-lg mb-4 overflow-hidden relative border border-white/10 shadow-inner">
               {animalPhotoUrl ? (
-                <img 
-                  src={animalPhotoUrl} 
-                  alt={appData.animals.name} 
-                  className="w-full h-full object-cover" 
-                />
+                <img src={animalPhotoUrl} alt={appData.animals.name} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-white/20">
-                  <i className="ti ti-paw text-5xl"></i>
-                </div>
+                <div className="w-full h-full flex items-center justify-center text-white/20"><i className="ti ti-paw text-5xl"></i></div>
               )}
             </div>
 
             <h2 className="font-serif text-2xl font-bold mb-4">{appData.animals.name}</h2>
             
             <div className="space-y-2 text-sm text-white/80">
-              <div className="flex justify-between border-b border-white/10 pb-2">
-                <span>Species</span> <span className="capitalize font-medium">{appData.animals.species}</span>
-              </div>
-              <div className="flex justify-between border-b border-white/10 pb-2">
-                <span>Sex</span> <span className="capitalize font-medium">{appData.animals.sex}</span>
-              </div>
-              <div className="flex justify-between pb-2">
-                <span>Age</span> <span className="capitalize font-medium">{appData.animals.age_estimate}</span>
-              </div>
+              <div className="flex justify-between border-b border-white/10 pb-2"><span>Species</span> <span className="capitalize font-medium">{appData.animals.species}</span></div>
+              <div className="flex justify-between border-b border-white/10 pb-2"><span>Sex</span> <span className="capitalize font-medium">{appData.animals.sex}</span></div>
+              <div className="flex justify-between pb-2"><span>Age</span> <span className="capitalize font-medium">{appData.animals.age_estimate}</span></div>
             </div>
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-sol-dark/10">
             <h2 className="text-lg font-bold text-sol-dark mb-4">Admin Actions</h2>
             
-            {appData.status === 'submitted' || appData.status === 'under_review' ? (
+            {appData.status === 'submitted' || appData.status === 'under_review' || appData.status === 'interview' ? (
               <div className="space-y-3">
+                {appData.status !== 'interview' && (
+                  <button 
+                    onClick={() => handleUpdateStatus('interview')}
+                    disabled={isUpdating}
+                    className="w-full bg-purple-50 text-purple-700 border border-purple-200 py-3 rounded-lg font-bold text-sm hover:bg-purple-100 transition-colors disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
+                  >
+                    <i className="ti ti-video"></i>
+                    {isUpdating ? 'Updating...' : 'Move to Interview Stage'}
+                  </button>
+                )}
+
                 <button 
                   onClick={() => handleUpdateStatus('approved')}
                   disabled={isUpdating}
@@ -176,6 +227,7 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
                 >
                   {isUpdating ? 'Updating...' : 'Approve Application'}
                 </button>
+                
                 <button 
                   onClick={() => handleUpdateStatus('rejected')}
                   disabled={isUpdating}
@@ -185,8 +237,14 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
                 </button>
               </div>
             ) : (
-              <div className="text-sm text-sol-dark/60 bg-sol-cream p-4 rounded-lg text-center border border-sol-dark/5 shadow-inner">
-                This application has already been <strong className="capitalize text-sol-dark">{appData.status === 'under_review' ? 'in review' : appData.status}</strong>. No further action required.
+              <div className="text-sm text-sol-dark/60 bg-sol-cream p-4 rounded-lg text-center border border-sol-dark/5 shadow-inner flex flex-col gap-2">
+                <div>This application has already been <strong className="capitalize text-sol-dark">{getStatusText(appData.status)}</strong>.</div>
+                
+                {appData.status === 'approved' && (
+                  <div className="text-green-700 font-bold bg-green-50 p-3 rounded border border-green-200 mt-2 flex items-center justify-center gap-2">
+                    <i className="ti ti-check"></i> Adoption Approved!
+                  </div>
+                )}
               </div>
             )}
           </div>

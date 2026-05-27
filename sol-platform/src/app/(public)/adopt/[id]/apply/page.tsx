@@ -124,7 +124,7 @@ export default function AdoptionForm({ params }: { params: { id: string } }) {
               </label>
               <label className="flex items-start space-x-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
                 <input type="checkbox" name="reqLocation" checked={formData.reqLocation} onChange={handleChange} required className="mt-1" />
-                <span>I am based in Metro Manila or nearby areas.</span>
+                <span>I am based in Quezon City.</span>
               </label>
               <label className="flex items-start space-x-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
                 <input type="checkbox" name="reqNotGifting" checked={formData.reqNotGifting} onChange={handleChange} required className="mt-1" />
