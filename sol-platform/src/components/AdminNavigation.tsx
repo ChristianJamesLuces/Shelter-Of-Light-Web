@@ -11,8 +11,8 @@ export default function AdminNavigation() {
   const navLinks = [
     { name: 'Dashboard', href: '/dashboard', icon: 'ti-layout-dashboard' },
     { name: 'Animal Inventory', href: '/animals', icon: 'ti-paw' },
-    { name: 'Add Animal', href: '/animals/new', icon: 'ti-circle-plus' },
-    // You can add Applications and Settings here later!
+    { name: 'Applications', href: '/applications', icon: 'ti-file-text' },
+    { name: 'Donations', href: '/donations', icon: 'ti-cash' },
   ];
 
   return (

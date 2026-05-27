@@ -95,7 +95,7 @@ export default async function Home() {
           </div>
         )}
       </section>
-
+      
       {/* DONATION CTA */}
       <section className="bg-sol-dark py-20 px-6 text-center border-t border-sol-dark">
         <h2 className="font-serif text-3xl md:text-4xl text-white mb-4">

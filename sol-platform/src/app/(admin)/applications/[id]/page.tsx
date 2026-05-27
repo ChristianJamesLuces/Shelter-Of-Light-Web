@@ -2,182 +2,195 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function ApplicationReviewPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const router = useRouter();
-  
   const [appData, setAppData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // 1. Fetch the specific application data on load
   useEffect(() => {
     async function fetchApplicationDetails() {
       const { data, error } = await supabase
         .from('applications')
         .select(`
+          *,
+          adopters (*),
+          animals (
             *,
-            adopters (*),
-            animals (
-            *,
-            animal_photos ( file_url, is_primary )
-            )
+            animal_photos(file_url)
+          )
         `)
         .eq('application_id', params.id)
         .single();
 
-      if (error) {
-        console.error('Error fetching details:', error);
-        setError('Could not load application details.');
-      } else {
-        setAppData(data);
+      if (data) {
+        // Automatic "In Review" trigger
+        if (data.status === 'submitted') {
+          const { error: updateError } = await supabase
+            .from('applications')
+            .update({ status: 'under_review' })
+            .eq('application_id', params.id);
+            
+          if (!updateError) {
+            setAppData({ ...data, status: 'under_review' });
+          } else {
+            setAppData(data);
+          }
+        } else {
+          setAppData(data);
+        }
       }
       setIsLoading(false);
     }
-
     fetchApplicationDetails();
   }, [params.id]);
 
-  // 2. Handle Approve or Reject
-  const handleStatusUpdate = async (newStatus: 'approved' | 'rejected') => {
-    if (!confirm(`Are you sure you want to mark this application as ${newStatus.toUpperCase()}?`)) return;
-    
+  const handleUpdateStatus = async (newStatus: string) => {
     setIsUpdating(true);
     
-    try {
-      // Update the application status
-      const { error: updateError } = await supabase
-        .from('applications')
-        .update({ status: newStatus })
-        .eq('application_id', params.id);
+    const { error } = await supabase
+      .from('applications')
+      .update({ status: newStatus })
+      .eq('application_id', params.id);
 
-      if (updateError) throw updateError;
-
-      // If approved, you might also want to update the animal's status!
-      if (newStatus === 'approved') {
-        await supabase
-          .from('animals')
-          .update({ adoption_status: 'Adopted' }) // Assuming this matches your animal status values
-          .eq('animal_id', appData.animal_id);
-      }
-
-      // Refresh the local data to show the new status
+    if (!error) {
       setAppData({ ...appData, status: newStatus });
-      
-    } catch (err: any) {
-      console.error('Error updating status:', err);
-      alert('Failed to update status. Check console for details.');
-    } finally {
-      setIsUpdating(false);
+    } else {
+      alert("Failed to update status. Please try again.");
     }
+    
+    setIsUpdating(false);
   };
 
-  if (isLoading) return <div className="p-8 max-w-4xl mx-auto mt-12 text-center text-sol-dark/50">Loading application details...</div>;
-  if (error || !appData) return <div className="p-8 max-w-4xl mx-auto mt-12 bg-red-50 text-red-600 rounded-lg">{error || 'Application not found'}</div>;
+  if (isLoading) return <div className="p-12 text-center text-sol-dark/50">Loading application details...</div>;
+  
+  if (!appData) return (
+    <div className="p-12 text-center">
+      <h2 className="text-2xl font-bold mb-4">Application Not Found</h2>
+      <Link href="/applications" className="text-sol-yellow hover:underline">&larr; Back to Applications</Link>
+    </div>
+  );
+
+  // Extract the photo URL safely
+  const animalPhotoUrl = appData.animals?.animal_photos?.[0]?.file_url;
 
   return (
-    <div className="max-w-4xl mx-auto pb-12">
+    <div className="max-w-5xl mx-auto pb-12">
+      
       {/* Header & Back Button */}
       <div className="mb-8">
-        <Link href="/applications" className="text-sm text-sol-dark/60 hover:text-sol-yellow mb-4 inline-block transition-colors">
+        <Link href="/applications" className="text-sm font-bold text-sol-dark/50 hover:text-sol-dark transition-colors mb-4 inline-block">
           &larr; Back to all applications
         </Link>
-        <div className="flex items-center justify-between">
+        <div className="flex justify-between items-start">
           <div>
-            <h1 className="font-serif text-3xl text-sol-dark font-bold mb-2">Review Application</h1>
-            <p className="text-sm text-sol-dark/60">Application #{appData.application_id} • Submitted on {new Date(appData.application_date || appData.created_at).toLocaleDateString()}</p>
+            <h1 className="font-serif text-3xl font-bold text-sol-dark">Application Review</h1>
+            <p className="text-sol-dark/60 mt-1">Submitted on {new Date(appData.created_at || appData.application_date).toLocaleDateString()}</p>
           </div>
           
-          {/* Status Badge */}
-          <span className={`px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide ${
-            appData.status === 'submitted' ? 'bg-indigo-100 text-indigo-800' :
-            appData.status === 'approved' ? 'bg-green-100 text-green-800' :
-            'bg-red-100 text-red-800'
-          }`}>
-            {appData.status}
-          </span>
+          <div className="bg-white border border-sol-dark/10 px-6 py-3 rounded-xl shadow-sm text-center">
+            <div className="text-[10px] uppercase tracking-widest text-sol-dark/40 font-bold mb-1">Current Status</div>
+            <div className={`font-bold capitalize ${
+              appData.status === 'approved' ? 'text-green-600' : 
+              appData.status === 'rejected' ? 'text-red-600' : 
+              appData.status === 'under_review' ? 'text-amber-600' :
+              'text-indigo-600'
+            }`}>
+              {appData.status === 'under_review' ? 'In Review' : appData.status}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Left Column: Applicant Info */}
-        <div className="md:col-span-2 space-y-6">
-          <div className="bg-white p-6 rounded-xl border border-sol-dark/10 shadow-sm">
-            <h2 className="text-lg font-bold text-sol-dark mb-4 border-b pb-2">Applicant Details</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div><span className="block text-xs font-bold text-sol-dark/50 uppercase">Full Name</span><span className="text-sol-dark font-medium">{appData.adopters?.full_name}</span></div>
-              <div><span className="block text-xs font-bold text-sol-dark/50 uppercase">Age</span><span className="text-sol-dark">{appData.adopters?.age}</span></div>
-              <div><span className="block text-xs font-bold text-sol-dark/50 uppercase">Email</span><span className="text-sol-dark">{appData.adopters?.email}</span></div>
-              <div><span className="block text-xs font-bold text-sol-dark/50 uppercase">Phone</span><span className="text-sol-dark">{appData.adopters?.phone}</span></div>
-              <div className="col-span-2"><span className="block text-xs font-bold text-sol-dark/50 uppercase">Address</span><span className="text-sol-dark">{appData.adopters?.address}, {appData.adopters?.city}</span></div>
-              <div><span className="block text-xs font-bold text-sol-dark/50 uppercase">Occupation</span><span className="text-sol-dark">{appData.adopters?.occupation}</span></div>
-              <div><span className="block text-xs font-bold text-sol-dark/50 uppercase">Employment</span><span className="text-sol-dark">{appData.adopters?.employment_status}</span></div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* LEFT COLUMN: Details */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-sol-dark/10">
+            <h2 className="text-lg font-bold text-sol-dark border-b border-sol-dark/5 pb-3 mb-4">Applicant Profile</h2>
+            <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
+              <div><span className="block text-sol-dark/50 text-[10px] uppercase font-bold tracking-wider mb-1">Full Name</span> <span className="font-medium text-sol-dark">{appData.adopters.full_name}</span></div>
+              <div><span className="block text-sol-dark/50 text-[10px] uppercase font-bold tracking-wider mb-1">Age</span> <span className="font-medium text-sol-dark">{appData.adopters.age} years old</span></div>
+              <div><span className="block text-sol-dark/50 text-[10px] uppercase font-bold tracking-wider mb-1">Email</span> <span className="font-medium text-sol-dark">{appData.adopters.email}</span></div>
+              <div><span className="block text-sol-dark/50 text-[10px] uppercase font-bold tracking-wider mb-1">Phone</span> <span className="font-medium text-sol-dark">{appData.adopters.phone}</span></div>
+              <div className="col-span-2"><span className="block text-sol-dark/50 text-[10px] uppercase font-bold tracking-wider mb-1">Address</span> <span className="font-medium text-sol-dark">{appData.adopters.address}, {appData.adopters.city}</span></div>
+              <div><span className="block text-sol-dark/50 text-[10px] uppercase font-bold tracking-wider mb-1">Occupation</span> <span className="font-medium text-sol-dark">{appData.adopters.occupation} ({appData.adopters.employment_status})</span></div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-xl border border-sol-dark/10 shadow-sm">
-            <h2 className="text-lg font-bold text-sol-dark mb-4 border-b pb-2">Home Environment</h2>
-            <p className="text-sol-dark/80 whitespace-pre-wrap leading-relaxed">
-              {appData.home_environment_notes || 'No notes provided.'}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-sol-dark/10">
+            <h2 className="text-lg font-bold text-sol-dark border-b border-sol-dark/5 pb-3 mb-4">Home Environment</h2>
+            <p className="text-sm text-sol-dark/80 leading-relaxed whitespace-pre-wrap">
+              {appData.home_environment_notes}
             </p>
           </div>
         </div>
 
-        {/* Right Column: Animal & Actions */}
+        {/* RIGHT COLUMN: Animal & Actions */}
         <div className="space-y-6">
-          <div className="bg-[#f8f7f2] p-6 rounded-xl border border-sol-dark/10">
-            <h2 className="text-lg font-bold text-sol-dark mb-4">Adopting</h2>
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 bg-sol-dark flex items-center justify-center">
-                {appData.animals?.animal_photos?.find((p: any) => p.is_primary)?.file_url ? (
-                    <img 
-                    src={appData.animals.animal_photos.find((p: any) => p.is_primary).file_url} 
-                    alt={appData.animals?.name} 
-                    className="w-full h-full object-cover"
-                    />
-                ) : (
-                    <span className="text-sol-yellow font-bold text-xl">
-                    {appData.animals?.name?.charAt(0)}
-                    </span>
-                )}
+          
+          <div className="bg-sol-dark text-white p-6 rounded-xl shadow-sm flex flex-col">
+            <div className="text-[10px] uppercase tracking-widest text-white/50 font-bold mb-3">Applying For</div>
+            
+            {/* THE RESTORED PHOTO */}
+            <div className="h-48 w-full bg-black/30 rounded-lg mb-4 overflow-hidden relative border border-white/10 shadow-inner">
+              {animalPhotoUrl ? (
+                <img 
+                  src={animalPhotoUrl} 
+                  alt={appData.animals.name} 
+                  className="w-full h-full object-cover" 
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-white/20">
+                  <i className="ti ti-paw text-5xl"></i>
                 </div>
-              <div>
-                <div className="font-bold text-sol-dark text-lg">{appData.animals?.name}</div>
-                <div className="text-sm text-sol-dark/60 capitalize">{appData.animals?.species} • {appData.animals?.breed || 'Mixed'}</div>
+              )}
+            </div>
+
+            <h2 className="font-serif text-2xl font-bold mb-4">{appData.animals.name}</h2>
+            
+            <div className="space-y-2 text-sm text-white/80">
+              <div className="flex justify-between border-b border-white/10 pb-2">
+                <span>Species</span> <span className="capitalize font-medium">{appData.animals.species}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/10 pb-2">
+                <span>Sex</span> <span className="capitalize font-medium">{appData.animals.sex}</span>
+              </div>
+              <div className="flex justify-between pb-2">
+                <span>Age</span> <span className="capitalize font-medium">{appData.animals.age_estimate}</span>
               </div>
             </div>
           </div>
 
-          {/* Action Buttons (Only show if not already approved/rejected) */}
-          {(appData.status === 'submitted' || appData.status === 'under_review') && (
-            <div className="bg-white p-6 rounded-xl border border-sol-dark/10 shadow-sm flex flex-col gap-3">
-              <h2 className="text-sm font-bold text-sol-dark uppercase tracking-wider mb-2">Actions</h2>
-              <button 
-                onClick={() => handleStatusUpdate('approved')}
-                disabled={isUpdating}
-                className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition-colors disabled:opacity-50"
-              >
-                Approve Application
-              </button>
-              <button 
-                onClick={() => handleStatusUpdate('rejected')}
-                disabled={isUpdating}
-                className="w-full bg-red-100 text-red-700 py-3 rounded-lg font-bold hover:bg-red-200 transition-colors disabled:opacity-50"
-              >
-                Reject Application
-              </button>
-            </div>
-          )}
-          
-          {appData.status === 'approved' && (
-            <div className="bg-green-50 p-4 rounded-xl border border-green-200 text-green-800 text-center text-sm font-medium">
-              This application has been approved.
-            </div>
-          )}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-sol-dark/10">
+            <h2 className="text-lg font-bold text-sol-dark mb-4">Admin Actions</h2>
+            
+            {appData.status === 'submitted' || appData.status === 'under_review' ? (
+              <div className="space-y-3">
+                <button 
+                  onClick={() => handleUpdateStatus('approved')}
+                  disabled={isUpdating}
+                  className="w-full bg-green-600 text-white py-3 rounded-lg font-bold text-sm hover:bg-green-700 transition-colors disabled:opacity-50 shadow-sm"
+                >
+                  {isUpdating ? 'Updating...' : 'Approve Application'}
+                </button>
+                <button 
+                  onClick={() => handleUpdateStatus('rejected')}
+                  disabled={isUpdating}
+                  className="w-full bg-red-50 text-red-600 border border-red-200 py-3 rounded-lg font-bold text-sm hover:bg-red-100 transition-colors disabled:opacity-50 shadow-sm"
+                >
+                  Reject Application
+                </button>
+              </div>
+            ) : (
+              <div className="text-sm text-sol-dark/60 bg-sol-cream p-4 rounded-lg text-center border border-sol-dark/5 shadow-inner">
+                This application has already been <strong className="capitalize text-sol-dark">{appData.status === 'under_review' ? 'in review' : appData.status}</strong>. No further action required.
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
     </div>

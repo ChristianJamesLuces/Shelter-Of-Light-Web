@@ -9,6 +9,9 @@ export default function ApplicationsPage() {
   const [applications, setApplications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // NEW: State for the search bar
+  const [searchQuery, setSearchQuery] = useState('');
+
   // We added a function to manually refresh the data
   const fetchApplications = async () => {
     setIsLoading(true);
@@ -35,22 +38,43 @@ export default function ApplicationsPage() {
     fetchApplications();
   }, []);
 
+  // NEW: Filter applications based on the search query
+  const filteredApplications = applications.filter((app) => {
+    const applicantName = app.adopters?.full_name || '';
+    return applicantName.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
   return (
     <div className="max-w-6xl mx-auto p-8">
-      {/* Header with a Refresh Button to bypass Next.js cache */}
-      <div className="flex items-center justify-between mb-8">
+      {/* Header with Search and Refresh Button */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
         <div>
           <h1 className="font-serif text-2xl text-sol-dark font-bold">Applications</h1>
           <p className="text-xs text-sol-dark/50 mt-1">
             {applications.length} total applications
           </p>
         </div>
-        <button 
-          onClick={fetchApplications}
-          className="text-xs bg-sol-dark text-sol-yellow px-4 py-2 rounded-lg font-bold hover:bg-black transition-colors"
-        >
-          Refresh Data
-        </button>
+        
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+          {/* NEW: Search Bar UI */}
+          <div className="relative w-full sm:w-64">
+            <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-sol-dark/40"></i>
+            <input 
+              type="text" 
+              placeholder="Search applicant name..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-sol-dark/10 focus:outline-none focus:border-sol-yellow text-sm bg-white shadow-sm"
+            />
+          </div>
+
+          <button 
+            onClick={fetchApplications}
+            className="text-xs bg-sol-dark text-sol-yellow px-4 py-2.5 rounded-lg font-bold hover:bg-black transition-colors w-full sm:w-auto shrink-0"
+          >
+            Refresh Data
+          </button>
+        </div>
       </div>
 
       {/* Data Table */}
@@ -69,8 +93,15 @@ export default function ApplicationsPage() {
           <div className="p-8 text-center text-sm text-sol-dark/50">No applications found.</div>
         )}
 
-        {/* Live Data Rows */}
-        {!isLoading && applications.map((app) => {
+        {/* NEW: Show message if search yields no results */}
+        {!isLoading && applications.length > 0 && filteredApplications.length === 0 && (
+          <div className="p-8 text-center text-sm text-sol-dark/50">
+            No applicants found matching "{searchQuery}".
+          </div>
+        )}
+
+        {/* Live Data Rows - Now mapping over filteredApplications */}
+        {!isLoading && filteredApplications.map((app) => {
           const dateStr = new Date(app.application_date).toLocaleDateString('en-US', { 
             month: 'short', day: 'numeric' 
           });
