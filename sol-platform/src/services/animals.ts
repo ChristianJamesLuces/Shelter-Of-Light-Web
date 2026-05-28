@@ -3,10 +3,15 @@ import { createClient } from '@/lib/supabase/server';
 export async function getAvailableAnimals() {
   const supabase = createClient();
   
-  // Querying the specific view you built for the public homepage
+  // THE FIX: We now query the base 'animals' table directly so we can pull the linked photos!
   const { data, error } = await supabase
-    .from('v_available_animals')
-    .select('*');
+    .from('animals')
+    .select(`
+      *,
+      animal_photos ( file_url, is_primary )
+    `)
+    .eq('adoption_status', 'available')
+    .order('created_at', { ascending: false }); // Optional: puts the newest rescues first!
 
   if (error) {
     console.error('Error fetching animals:', error);

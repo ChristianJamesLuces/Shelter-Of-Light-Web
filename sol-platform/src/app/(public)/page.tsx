@@ -74,7 +74,10 @@ export default async function Home() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {featuredAnimals.map((animal) => {
-              const photoUrl = animal.primary_photo_url || 'https://via.placeholder.com/400x400?text=No+Photo';
+              
+              // THE FIX: We now explicitly look inside the nested 'animal_photos' array from Supabase
+              const photoUrl = animal.animal_photos?.[0]?.file_url || animal.primary_photo_url || 'https://placehold.co/400x400?text=No+Photo';
+              
               return (
                 <Link href={`/adopt/${animal.animal_id}`} key={animal.animal_id} className="group bg-white rounded-2xl border border-sol-dark/10 overflow-hidden hover:shadow-lg transition-all">
                   <div className="aspect-square bg-sol-dark relative overflow-hidden">

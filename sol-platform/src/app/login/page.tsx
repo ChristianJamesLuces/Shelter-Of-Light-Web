@@ -1,74 +1,75 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // UI States
-  const [showPassword, setShowPassword] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false); // Toggles between Login and Registration
-
-  // Auth States
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  // State
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false); // NEW STATE
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [fullName, setFullName] = useState('');
+  
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
-  // Unified authentication handler
+  // Helper to clear messages when switching views
+  const resetMessages = () => {
+    setError(null);
+    setSuccessMsg(null);
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError(null);
-    setSuccessMsg(null);
+    resetMessages();
 
-    if (isSignUp) {
-      // --- SIGN UP LOGIC ---
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+    // 1. FORGOT PASSWORD FLOW
+    if (isForgotPassword) {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) {
+        setError(error.message);
+      } else {
+        setSuccessMsg("Password reset email sent! Check your inbox for the recovery link.");
+        // We leave them on the forgot password screen so they can read the message
+      }
+    } 
+    // 2. SIGN UP FLOW
+    else if (isSignUp) {
+      const { error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            username: username,
+            full_name: fullName
+          }
+        }
       });
 
       if (authError) {
         setError(authError.message);
-      } else if (authData.user) {
-        
-        // --- NEW: LINK TO YOUR CUSTOM TABLES ---
-        // 1. Ask Supabase for the ID of the 'Staff' role
-        const { data: roleData } = await supabase
-          .from("roles")
-          .select("role_id")
-          .ilike("role_name", "staff") // This safely matches 'staff', 'Staff', etc.
-          .single();
-
-        // 2. Insert the user into your custom 'users' table
-        if (roleData) {
-          const { error: insertError } = await supabase
-            .from("users")
-            .insert([
-              {
-                email: email,
-                role_id: roleData.role_id,
-              }
-            ]);
-            
-          if (insertError) {
-            console.error("Failed to add user to custom table:", insertError);
-          }
-        }
-
-        setSuccessMsg("Account created! Please check your email for a confirmation link before logging in.");
+      } else {
+        setSuccessMsg("Account created successfully! Please check your email inbox to verify your account before signing in.");
         setIsSignUp(false); 
         setPassword(""); 
+        setUsername("");
+        setFullName("");
       }
-    } else {
-      // --- SIGN IN LOGIC ---
+    } 
+    // 3. SIGN IN FLOW
+    else {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -84,157 +85,156 @@ export default function LoginPage() {
 
     setIsLoading(false);
   };
+
   return (
-    <div className="flex min-h-screen bg-sol-cream font-sans">
+    <div className="min-h-screen flex bg-[#f8f7f2] font-sans">
       
-      {/* Left Pane - Branding (Hidden on mobile, visible on desktop) */}
-      <div className="hidden w-1/2 flex-col items-center justify-center bg-sol-dark p-12 lg:flex relative overflow-hidden">
-        <div className="flex flex-col items-center justify-center text-center z-10">
-           
-           {/* Shelter of Light Logo */}
-           <div className="relative mb-8 h-56 w-56 overflow-hidden rounded-2xl border-2 border-sol-yellow/20 shadow-xl bg-white">
-              <Image 
-                src="/sol-logo.jpg" 
-                alt="Shelter of Light Logo" 
-                fill 
-                className="object-contain"
-                priority
-              />
-           </div>
-           
-           <h1 className="mt-4 font-serif text-3xl font-bold tracking-widest text-sol-cream uppercase">
-             Shelter of Light
-           </h1>
-           <p className="mt-2 text-sm tracking-[0.3em] text-sol-cream/50 uppercase">
-             The Light We Carry: Our Journey
-           </p>
+      {/* LEFT SIDE: Branding Panel */}
+      <div className="hidden lg:flex w-1/2 bg-sol-dark flex-col justify-between p-12 relative overflow-hidden">
+        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-sol-yellow/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-black/40 rounded-full blur-3xl"></div>
+
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center border-2 border-sol-yellow/20">
+            <Image src="/sol-logo.jpg" alt="Shelter of Light Logo" width={48} height={48} className="object-cover w-full h-full"/>
+          </div>
+          <span className="font-serif text-2xl font-bold text-sol-yellow">Shelter of Light</span>
+        </div>
+
+        <div className="relative z-10 max-w-md">
+          <h1 className="text-4xl lg:text-5xl font-serif text-white font-bold leading-tight mb-6">
+            Welcome to the <span className="text-sol-yellow">Staff Portal</span>.
+          </h1>
+          <p className="text-white/60 text-lg leading-relaxed">
+            Manage animal inventories, review adoption applications, and help our rescues find their forever homes.
+          </p>
+        </div>
+
+        <div className="relative z-10 text-white/30 text-sm">
+          &copy; {new Date().getFullYear()} Shelter of Light Rescue.
         </div>
       </div>
 
-      {/* Right Pane - Login Form */}
-      <div className="flex w-full items-center justify-center p-8 sm:p-12 lg:w-1/2 relative">
+      {/* RIGHT SIDE: Interactive Form Panel */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 relative overflow-y-auto">
         
-        {/* Back to Website Button */}
-        <div className="absolute top-8 right-8">
-          <Link href="/" className="text-sm font-semibold text-gray-500 hover:text-sol-dark transition-colors flex items-center gap-2">
-            &larr; Back to Website
-          </Link>
+        {/* Mobile Header */}
+        <div className="absolute top-8 left-6 sm:left-12 lg:hidden flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center border border-sol-dark/10">
+            <Image src="/sol-logo.jpg" alt="Shelter of Light Logo" width={40} height={40} className="object-cover w-full h-full"/>
+          </div>
+          <span className="font-serif text-xl font-bold text-sol-dark">Shelter of Light</span>
         </div>
 
-        <div className="w-full max-w-md space-y-8">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight text-sol-dark">
-              {isSignUp ? "CREATE ACCOUNT!" : "WELCOME!"}
-            </h2>
-            <p className="mt-2 text-sm text-gray-500">
-              {isSignUp ? "Register a new staff account below" : "Login to continue making a difference"}
-            </p>
-          </div>
-
-          {/* Alert Messages */}
-          {error && (
-            <div className="rounded-md bg-red-50 p-4 border border-red-200 text-sm text-red-700">
-              {error}
+        <div className="w-full max-w-md my-auto pt-16 lg:pt-0">
+          <div className="bg-white p-8 sm:p-10 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-sol-dark/5">
+            
+            <div className="mb-8">
+              <h2 className="text-2xl font-serif font-bold text-sol-dark mb-2">
+                {isForgotPassword ? 'Reset Password' : (isSignUp ? 'Create an Account' : 'Welcome!')}
+              </h2>
+              <p className="text-sol-dark/50 text-sm">
+                {isForgotPassword 
+                  ? 'Enter your email address and we will send you a recovery link.' 
+                  : (isSignUp ? 'Register as a new shelter staff member.' : 'Login to continue making a difference.')}
+              </p>
             </div>
-          )}
-          {successMsg && (
-            <div className="rounded-md bg-green-50 p-4 border border-green-200 text-sm text-green-700">
-              {successMsg}
-            </div>
-          )}
 
-          <form className="space-y-6" onSubmit={handleAuth}>
-            {/* Email Field */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium leading-6 text-sol-dark">
-                Email address
-              </label>
-              <div className="mt-2">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="hello@example.com"
-                  className="block w-full rounded-md border-0 py-2.5 px-3 text-sol-dark shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sol-yellow sm:text-sm sm:leading-6 bg-white transition-shadow outline-none"
-                />
+            {error && (
+              <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm font-medium mb-6 border border-red-100 flex items-start gap-3">
+                <i className="ti ti-alert-circle text-lg mt-0.5"></i>
+                <span>{error}</span>
               </div>
-            </div>
+            )}
 
-            {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium leading-6 text-sol-dark">
-                Password {isSignUp && <span className="text-gray-400 font-normal">(min. 6 characters)</span>}
-              </label>
-              <div className="relative mt-2">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete={isSignUp ? "new-password" : "current-password"}
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="block w-full rounded-md border-0 py-2.5 pl-3 pr-10 text-sol-dark shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sol-yellow sm:text-sm sm:leading-6 bg-white transition-shadow outline-none"
-                />
-                
-                {/* Toggle Password Visibility Button */}
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-sol-dark transition-colors"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  )}
-                </button>
+            {successMsg && (
+              <div className="bg-green-50 text-green-700 p-4 rounded-lg text-sm font-medium mb-6 border border-green-100 flex items-start gap-3">
+                <i className="ti ti-check text-lg mt-0.5"></i>
+                <span>{successMsg}</span>
               </div>
+            )}
+
+            <form onSubmit={handleAuth} className="space-y-5">
               
-              {/* Only show Forgot Password if they are trying to Log In */}
-              {!isSignUp && (
-                <div className="flex justify-start mt-3">
-                  <Link href="/forgot-password" className="text-sm font-semibold text-sol-dark hover:text-gray-600 transition-colors">
-                    Forgot password?
-                  </Link>
+              {/* Only show Name/Username for Sign Up */}
+              {!isForgotPassword && isSignUp && (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-sol-dark/70 uppercase tracking-wider mb-2">Full Name</label>
+                    <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-sol-dark/20 focus:outline-none focus:border-sol-yellow focus:ring-1 focus:ring-sol-yellow transition-all bg-[#fcfcfb]" placeholder="Juan Dela Cruz"/>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-sol-dark/70 uppercase tracking-wider mb-2">Username</label>
+                    <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-sol-dark/20 focus:outline-none focus:border-sol-yellow focus:ring-1 focus:ring-sol-yellow transition-all bg-[#fcfcfb]" placeholder="juandc"/>
+                  </div>
+                </>
+              )}
+
+              {/* Email is always shown */}
+              <div>
+                <label className="block text-xs font-bold text-sol-dark/70 uppercase tracking-wider mb-2">Email Address</label>
+                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-sol-dark/20 focus:outline-none focus:border-sol-yellow focus:ring-1 focus:ring-sol-yellow transition-all bg-[#fcfcfb]" placeholder="name@shelteroflight.com"/>
+              </div>
+
+              {/* Only show Password if NOT recovering */}
+              {!isForgotPassword && (
+                <div>
+                  <label className="block text-xs font-bold text-sol-dark/70 uppercase tracking-wider mb-2">Password</label>
+                  <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-sol-dark/20 focus:outline-none focus:border-sol-yellow focus:ring-1 focus:ring-sol-yellow transition-all bg-[#fcfcfb]" placeholder="••••••••"/>
+                  
+                  {/* FORGOT PASSWORD LINK MOVED UNDERNEATH */}
+                  {!isSignUp && (
+                    <div className="mt-2 text-right">
+                      <button 
+                        type="button" 
+                        onClick={() => { setIsForgotPassword(true); resetMessages(); }}
+                        className="text-xs text-sol-dark/40 hover:text-sol-yellow transition-colors font-medium"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                  )}
                 </div>
+              )}
+
+              <button type="submit" disabled={isLoading} className="w-full bg-sol-dark text-sol-yellow py-3.5 rounded-xl font-bold hover:bg-black transition-colors disabled:opacity-50 mt-4 shadow-md flex items-center justify-center gap-2">
+                {isLoading ? (
+                  <><i className="ti ti-loader animate-spin"></i> Processing...</>
+                ) : isForgotPassword ? (
+                  'Send Recovery Email'
+                ) : isSignUp ? (
+                  'Create Account'
+                ) : (
+                  <><i className="ti ti-paw text-lg"></i> Login</>
+                )}
+              </button>
+            </form>
+
+            {/* Bottom Footer Links */}
+            <div className="mt-8 text-center border-t border-sol-dark/5 pt-6 text-sm text-sol-dark/60 font-medium">
+              
+              {isForgotPassword ? (
+                 <button type="button" onClick={() => { setIsForgotPassword(false); resetMessages(); }} className="text-sol-dark hover:text-sol-yellow transition-colors underline decoration-2 underline-offset-4">
+                  &larr; Back to Login
+                </button>
+              ) : isSignUp ? (
+                <>
+                  Already have an account?{' '}
+                  <button type="button" onClick={() => { setIsSignUp(false); resetMessages(); }} className="text-sol-dark hover:text-sol-yellow transition-colors underline decoration-2 underline-offset-4">
+                    Login here
+                  </button>
+                </>
+              ) : (
+                <>
+                  Don't you have an account?{' '}
+                  <button type="button" onClick={() => { setIsSignUp(true); resetMessages(); }} className="text-sol-dark hover:text-sol-yellow transition-colors underline decoration-2 underline-offset-4 font-bold">
+                    Sign up
+                  </button>
+                </>
               )}
             </div>
 
-            {/* Submit Button */}
-            <div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex w-full justify-center rounded-md bg-sol-yellow px-3 py-2.5 text-sm font-bold leading-6 text-sol-dark shadow-sm hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sol-yellow transition-all disabled:opacity-50"
-              >
-                {isLoading ? "Processing..." : (isSignUp ? "Sign Up" : "Log In")}
-              </button>
-            </div>
-          </form>
-
-          {/* Toggle Button */}
-          <p className="mt-10 text-center text-sm text-gray-500">
-            {isSignUp ? "Already have an account? " : "Don't have an account? "}
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="font-semibold leading-6 text-sol-dark hover:text-gray-700 transition-colors"
-            >
-              {isSignUp ? "Log in" : "Sign up"}
-            </button>
-          </p>
+          </div>
         </div>
       </div>
     </div>
