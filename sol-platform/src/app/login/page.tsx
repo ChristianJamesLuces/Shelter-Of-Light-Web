@@ -3,10 +3,87 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
 
+  // UI States
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false); // Toggles between Login and Registration
+
+  // Auth States
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Unified authentication handler
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    setSuccessMsg(null);
+
+    if (isSignUp) {
+      // --- SIGN UP LOGIC ---
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (authError) {
+        setError(authError.message);
+      } else if (authData.user) {
+        
+        // --- NEW: LINK TO YOUR CUSTOM TABLES ---
+        // 1. Ask Supabase for the ID of the 'Staff' role
+        const { data: roleData } = await supabase
+          .from("roles")
+          .select("role_id")
+          .ilike("role_name", "staff") // This safely matches 'staff', 'Staff', etc.
+          .single();
+
+        // 2. Insert the user into your custom 'users' table
+        if (roleData) {
+          const { error: insertError } = await supabase
+            .from("users")
+            .insert([
+              {
+                email: email,
+                role_id: roleData.role_id,
+              }
+            ]);
+            
+          if (insertError) {
+            console.error("Failed to add user to custom table:", insertError);
+          }
+        }
+
+        setSuccessMsg("Account created! Please check your email for a confirmation link before logging in.");
+        setIsSignUp(false); 
+        setPassword(""); 
+      }
+    } else {
+      // --- SIGN IN LOGIC ---
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setError("Invalid email or password. Please try again.");
+      } else {
+        router.push("/dashboard");
+        router.refresh(); 
+      }
+    }
+
+    setIsLoading(false);
+  };
   return (
     <div className="flex min-h-screen bg-sol-cream font-sans">
       
@@ -35,14 +112,38 @@ export default function LoginPage() {
       </div>
 
       {/* Right Pane - Login Form */}
-      <div className="flex w-full items-center justify-center p-8 sm:p-12 lg:w-1/2">
+      <div className="flex w-full items-center justify-center p-8 sm:p-12 lg:w-1/2 relative">
+        
+        {/* Back to Website Button */}
+        <div className="absolute top-8 right-8">
+          <Link href="/" className="text-sm font-semibold text-gray-500 hover:text-sol-dark transition-colors flex items-center gap-2">
+            &larr; Back to Website
+          </Link>
+        </div>
+
         <div className="w-full max-w-md space-y-8">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight text-sol-dark">WELCOME!</h2>
-            <p className="mt-2 text-sm text-gray-500">Login to continue making a difference</p>
+            <h2 className="text-3xl font-bold tracking-tight text-sol-dark">
+              {isSignUp ? "CREATE ACCOUNT!" : "WELCOME!"}
+            </h2>
+            <p className="mt-2 text-sm text-gray-500">
+              {isSignUp ? "Register a new staff account below" : "Login to continue making a difference"}
+            </p>
           </div>
 
-          <form className="space-y-6" action="#" method="POST">
+          {/* Alert Messages */}
+          {error && (
+            <div className="rounded-md bg-red-50 p-4 border border-red-200 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+          {successMsg && (
+            <div className="rounded-md bg-green-50 p-4 border border-green-200 text-sm text-green-700">
+              {successMsg}
+            </div>
+          )}
+
+          <form className="space-y-6" onSubmit={handleAuth}>
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium leading-6 text-sol-dark">
@@ -55,8 +156,10 @@ export default function LoginPage() {
                   type="email"
                   autoComplete="email"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="hello@example.com"
-                  className="block w-full rounded-md border-0 py-2.5 px-3 text-sol-dark shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sol-yellow sm:text-sm sm:leading-6 bg-white transition-shadow"
+                  className="block w-full rounded-md border-0 py-2.5 px-3 text-sol-dark shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sol-yellow sm:text-sm sm:leading-6 bg-white transition-shadow outline-none"
                 />
               </div>
             </div>
@@ -64,17 +167,20 @@ export default function LoginPage() {
             {/* Password Field */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium leading-6 text-sol-dark">
-                Password
+                Password {isSignUp && <span className="text-gray-400 font-normal">(min. 6 characters)</span>}
               </label>
               <div className="relative mt-2">
                 <input
                   id="password"
                   name="password"
                   type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
+                  autoComplete={isSignUp ? "new-password" : "current-password"}
                   required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="block w-full rounded-md border-0 py-2.5 pl-3 pr-10 text-sol-dark shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sol-yellow sm:text-sm sm:leading-6 bg-white transition-shadow"
+                  className="block w-full rounded-md border-0 py-2.5 pl-3 pr-10 text-sol-dark shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-sol-yellow sm:text-sm sm:leading-6 bg-white transition-shadow outline-none"
                 />
                 
                 {/* Toggle Password Visibility Button */}
@@ -95,33 +201,42 @@ export default function LoginPage() {
                   )}
                 </button>
               </div>
-              <div className="flex justify-start mt-3">
-                <Link href="/forgot-password" className="text-sm font-semibold text-sol-dark hover:text-gray-600 transition-colors">
-                  Forgot password?
-                </Link>
-              </div>
+              
+              {/* Only show Forgot Password if they are trying to Log In */}
+              {!isSignUp && (
+                <div className="flex justify-start mt-3">
+                  <Link href="/forgot-password" className="text-sm font-semibold text-sol-dark hover:text-gray-600 transition-colors">
+                    Forgot password?
+                  </Link>
+                </div>
+              )}
             </div>
 
             {/* Submit Button */}
             <div>
               <button
                 type="submit"
-                className="flex w-full justify-center rounded-md bg-sol-yellow px-3 py-2.5 text-sm font-semibold leading-6 text-sol-dark shadow-sm hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sol-yellow transition-all"
+                disabled={isLoading}
+                className="flex w-full justify-center rounded-md bg-sol-yellow px-3 py-2.5 text-sm font-bold leading-6 text-sol-dark shadow-sm hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sol-yellow transition-all disabled:opacity-50"
               >
-                Log In
+                {isLoading ? "Processing..." : (isSignUp ? "Sign Up" : "Log In")}
               </button>
             </div>
           </form>
 
+          {/* Toggle Button */}
           <p className="mt-10 text-center text-sm text-gray-500">
-            Don't have an account?{' '}
-            <Link href="/signup" className="font-semibold leading-6 text-sol-dark hover:text-gray-700 transition-colors">
-              Sign up
-            </Link>
+            {isSignUp ? "Already have an account? " : "Don't have an account? "}
+            <button
+              type="button"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="font-semibold leading-6 text-sol-dark hover:text-gray-700 transition-colors"
+            >
+              {isSignUp ? "Log in" : "Sign up"}
+            </button>
           </p>
         </div>
       </div>
-
     </div>
   );
 }

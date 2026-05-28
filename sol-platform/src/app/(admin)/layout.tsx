@@ -1,4 +1,4 @@
-import AdminNavigation from '@/components/AdminNavigation';
+import AdminNavigation from '@/components/admin/AdminNavigation';
 
 export default function AdminLayout({
   children,
@@ -9,7 +9,7 @@ export default function AdminLayout({
     // We use a flex row so the sidebar sits on the left, and the main content fills the right.
     // On mobile (default), it's a column, so the Top Bar sits on top.
     <div className="flex flex-col md:flex-row min-h-screen bg-[#FDFBF7]">
-      
+        
       {/* Our new Sidebar component */}
       <AdminNavigation />
 
