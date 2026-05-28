@@ -81,29 +81,41 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to permanently delete ${appData.adopters.full_name}'s application? This action cannot be undone.`)) return;
+  const { data: { user } } = await supabase.auth.getUser();
+  console.log("CurrentUser according to Supabase:", user);
 
-    setIsUpdating(true);
-    try {
-      const { error } = await supabase
-        .from('applications')
-        .delete()
-        .eq('application_id', params.id);
+  console.log("Target ID we are trying to delete:", params.id);
+  console.log("1. Delete function started!");
 
-      if (error) throw error;
+  if (!confirm(`Are you sure you want to permanently delete this application?`)) {
+    console.log("User canceled the deletion.");
+    return;
+  }
 
-      alert('Application deleted successfully.');
+  console.log("2. Confirm passed. Starting Supabase request..."); 
+  setIsUpdating(true);
+
+  try {
+    const { data, error } = await supabase
+      .from('applications')
+      .delete()
+      .eq('application_id', params.id)
+      .select(); // Adding .select() forces Supabase to return the deleted row so we can inspect it
+
+    console.log("3. Supabase responded! Data:", data, "Error:", error);
+
+    if (error) throw error;
+
+    alert('Application deleted successfully.');
+    router.push('/applications');
+    router.refresh();
       
-      // THE FIX: Route back, then force Next.js to clear its cache!
-      router.push('/applications');
-      router.refresh();
-      
-    } catch (error: any) {
-      console.error(error);
-      alert(`Error deleting application: ${error.message || error}`);
-      setIsUpdating(false);
-    }
-  };
+  } catch (error: any) {
+    console.error("4. CATCH BLOCK TRIGGERED:", error);
+    alert(`Error deleting data: ${error.message || error}`);
+    setIsUpdating(false);
+  }
+};
 
   if (isLoading) return <div className="p-12 text-center text-sol-dark/50">Loading application details...</div>;
   
