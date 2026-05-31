@@ -12,44 +12,45 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
+  // Track all existing photos to ensure none are left behind in the bucket
   const [existingPhotos, setExistingPhotos] = useState<any[]>([]);
   const [currentPhotoUrl, setCurrentPhotoUrl] = useState<string | null>(null);
   const [newPhotoFile, setNewPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
+  // Expanded Form Data State mapped exactly to your Database
   const [formData, setFormData] = useState({
+    // Basic Info & Status
     name: '',
     species: '',
     breed: '',
-    color: '', 
+    color: '',
     gender: '',
     age: '',
     adoption_status: '',
     
+    // Health & Medical
     kapon_status: false,
     vaccine_status: false,
     deworming_status: false,
     flea_treatment_status: false,
     medical_history: '',
 
+    // Personality & Compatibility
     temperament: '',
     good_with_cats: 'unknown',
     good_with_dogs: 'unknown',
-    good_with_children: 'unknown', 
+    good_with_children: false,
 
+    // Special Care
     special_needs: '',
     diet_restrictions: '',
     
+    // Backstory
     description: '',
   });
 
-  // SAFETY FILTER: Forces values into matching database enum values ('yes', 'no', 'unknown')
-  const sanitizeCompatibility = (val: any) => {
-    if (val === true || val === 'true' || val === 'yes') return 'yes';
-    if (val === false || val === 'false' || val === 'no') return 'no';
-    return 'unknown';
-  };
-
+  // Helper function to safely extract the storage path from a Supabase public URL
   const getFilePathFromUrl = (url: string) => {
     try {
       if (url.includes('/object/public/')) {
@@ -83,7 +84,7 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
           name: data.name || '',
           species: data.species ? data.species.charAt(0).toUpperCase() + data.species.slice(1) : 'Cat',
           breed: data.breed || '',
-          color: data.color || '', 
+          color: data.color || '',
           gender: data.sex ? data.sex.charAt(0).toUpperCase() + data.sex.slice(1) : 'Female',
           age: data.age_estimate || '',
           adoption_status: data.adoption_status || 'available',
@@ -95,9 +96,9 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
           medical_history: data.medical_history || '',
           
           temperament: data.temperament || '',
-          good_with_cats: sanitizeCompatibility(data.good_with_cats),
-          good_with_dogs: sanitizeCompatibility(data.good_with_dogs),
-          good_with_children: sanitizeCompatibility(data.good_with_children),
+          good_with_cats: data.good_with_cats || 'unknown',
+          good_with_dogs: data.good_with_dogs || 'unknown',
+          good_with_children: data.good_with_children || false,
           
           special_needs: data.special_needs || '',
           diet_restrictions: data.diet_restrictions || '',
@@ -117,6 +118,7 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
     fetchAnimal();
   }, [params.id, supabase]);
 
+  // Updated handler to support both text inputs and checkboxes (booleans)
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
@@ -136,6 +138,7 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
     setIsSaving(true);
 
     try {
+      // 1. Handle Photo Update First
       if (newPhotoFile) {
         if (existingPhotos.length > 0) {
           const fileNamesToRemove = existingPhotos
@@ -174,6 +177,7 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
         if (insertError) throw insertError;
       }
 
+      // 2. Update all comprehensive text and boolean data
       const { error: updateError } = await supabase
         .from('animals')
         .update({
@@ -181,7 +185,7 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
           species: formData.species.toLowerCase(),
           sex: formData.gender.toLowerCase(),
           breed: formData.breed,
-          color: formData.color, 
+          color: formData.color,
           age_estimate: formData.age,
           adoption_status: formData.adoption_status,
           
@@ -192,9 +196,9 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
           medical_history: formData.medical_history,
           
           temperament: formData.temperament,
-          good_with_cats: sanitizeCompatibility(formData.good_with_cats),
-          good_with_dogs: sanitizeCompatibility(formData.good_with_dogs),
-          good_with_children: sanitizeCompatibility(formData.good_with_children),
+          good_with_cats: formData.good_with_cats,
+          good_with_dogs: formData.good_with_dogs,
+          good_with_children: formData.good_with_children,
           
           special_needs: formData.special_needs,
           diet_restrictions: formData.diet_restrictions,
@@ -386,14 +390,11 @@ export default function ManageAnimalPage({ params }: { params: { id: string } })
                 <option value="no">No</option>
               </select>
             </div>
-            
-            <div>
-              <label className="block text-xs font-bold text-sol-dark/70 uppercase tracking-wider mb-2">Good with Children?</label>
-              <select name="good_with_children" value={formData.good_with_children as string} onChange={handleChange} className="w-full px-4 py-2.5 rounded-lg border border-sol-dark/20 focus:outline-none focus:border-sol-yellow transition-colors bg-white">
-                <option value="unknown">Unknown</option>
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
-              </select>
+            <div className="flex items-center pt-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="good_with_children" checked={formData.good_with_children} onChange={handleChange} className="w-4 h-4 accent-sol-dark" />
+                <span className="text-sm font-medium text-sol-dark">Good with Children</span>
+              </label>
             </div>
           </div>
         </div>

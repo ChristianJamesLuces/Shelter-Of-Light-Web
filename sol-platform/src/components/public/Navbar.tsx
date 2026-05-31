@@ -11,7 +11,7 @@ export default function Navbar() {
             <Link href="/" className="flex items-center gap-3 hover:text-sol-yellow transition-colors group">
               {/* This looks for your logo in the public folder */}
               <img 
-                src="/sol-logo.jpg" 
+                src="/sol-logo.jpg"   
                 alt="Shelter of Light Logo" 
                 className="h-10 w-10 object-cover rounded-full border-2 border-transparent group-hover:border-sol-yellow transition-colors" 
               />
