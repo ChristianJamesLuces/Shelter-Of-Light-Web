@@ -39,10 +39,23 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
     const { error: appError } = await supabase.from('applications').update({ status: newStatus }).eq('application_id', params.id);
 
     if (!appError) {
+      // SMART ADOPTION SYNC LOGIC
       if (newStatus === 'approved' && appData.animals?.animal_id) {
+        // 1. Mark animal as adopted
         await supabase.from('animals').update({ adoption_status: 'adopted' }).eq('animal_id', appData.animals.animal_id);
+        
+        // 2. Insert into the Adoptions table (matching your exact schema)
+        await supabase.from('adoptions').insert({
+          application_id: params.id,
+          animal_id: appData.animals.animal_id,
+          adopter_id: appData.adopter_id,
+          adoption_date: new Date().toISOString().split('T')[0] // Formats as YYYY-MM-DD
+        });
+
       } else if (appData.status === 'approved' && newStatus !== 'approved' && appData.animals?.animal_id) {
+        // Revert animal status and delete from adoptions table
         await supabase.from('animals').update({ adoption_status: 'available' }).eq('animal_id', appData.animals.animal_id);
+        await supabase.from('adoptions').delete().eq('application_id', params.id);
       }
 
       try {
@@ -91,7 +104,6 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
     return status;
   };
 
-  // Helper to figure out what the "previous stage" is
   const getPreviousStatus = (currentStatus: string) => {
     if (currentStatus === 'interview') return 'submitted';
     if (currentStatus === 'handover') return 'interview';
@@ -171,14 +183,12 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
             </div>
           </div>
 
-          {/* Admin Actions - Now with "Move Back" Buttons! */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-sol-dark/10">
             <h2 className="text-lg font-bold text-sol-dark mb-4">Admin Actions</h2>
             
             {['submitted', 'interview', 'handover'].includes(appData.status) ? (
               <div className="space-y-3">
                 
-                {/* THE FIX: Dynamic "Move Back" Button */}
                 {prevStatus && (
                   <button 
                     onClick={() => handleUpdateStatus(prevStatus)} 
@@ -189,7 +199,6 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
                   </button>
                 )}
 
-                {/* Forward Pipeline Buttons */}
                 {appData.status === 'submitted' && (
                   <button onClick={() => handleUpdateStatus('interview')} disabled={isUpdating} className="w-full bg-blue-50 text-blue-700 border border-blue-200 py-3 rounded-lg font-bold text-sm hover:bg-blue-100 transition-colors shadow-sm flex items-center justify-center gap-2">
                     <i className="ti ti-video"></i> Pass Form (Move to Interview)
@@ -228,7 +237,6 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
               </div>
             )}
             
-            {/* Master Manual Override Selector */}
             <div className="mt-6 pt-6 border-t border-sol-dark/5">
               <p className="text-[10px] text-sol-dark/50 mb-3 font-medium uppercase tracking-wider">Manual Override</p>
               <div className="flex flex-col gap-3">
