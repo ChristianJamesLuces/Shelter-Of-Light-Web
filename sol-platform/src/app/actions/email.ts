@@ -53,13 +53,42 @@ export async function sendStatusEmail(
       </div>
     `;
   } else {
-    // If it's just moving to "under_review", we don't necessarily need to spam them with an email
     return { success: true, message: 'No email needed for this status' };
   }
 
   try {
     const data = await resend.emails.send({
-      from: 'Shelter of Light <onboarding@resend.dev>', // See Sandbox note below!
+      from: 'Shelter of Light <onboarding@resend.dev>', 
+      to: toEmail,
+      subject: subject,
+      html: htmlContent,
+    });
+    return { success: true, data };
+  } catch (error) {
+    console.error('Email failed:', error);
+    return { success: false, error };
+  }
+}
+
+// THE FIX: New Email function specifically for Staff Approvals!
+export async function sendStaffApprovalEmail(toEmail: string, staffName: string) {
+  const subject = 'Your Shelter of Light Account has been Approved! 🎉';
+  const htmlContent = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 10px;">
+      <h2 style="color: #1a202c;">Welcome to the Team, ${staffName}!</h2>
+      <p style="color: #4a5568; line-height: 1.6;">An administrator has just reviewed and <strong>approved</strong> your staff account for the Shelter of Light Management Portal.</p>
+      <p style="color: #4a5568; line-height: 1.6;">You can now log in using your email and password to access the dashboard and help us manage the shelter.</p>
+      <br/>
+      <a href="http://localhost:3000/login" style="display: inline-block; background-color: #f6e05e; color: #1a202c; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Login to Portal</a>
+      <br/><br/>
+      <p style="color: #4a5568;">Warmly,</p>
+      <p style="color: #1a202c; font-weight: bold;">Shelter of Light Administration</p>
+    </div>
+  `;
+
+  try {
+    const data = await resend.emails.send({
+      from: 'Shelter of Light <onboarding@resend.dev>',
       to: toEmail,
       subject: subject,
       html: htmlContent,

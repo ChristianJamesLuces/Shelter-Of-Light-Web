@@ -26,7 +26,6 @@ export default function LoginPage() {
     setSuccessMsg(null);
   };
 
-  // The new Password Security Validator
   const validatePassword = (pwd: string) => {
     if (pwd.length < 8) return "Password must be at least 8 characters long.";
     if (!/\d/.test(pwd)) return "Password must contain at least one number.";
@@ -54,12 +53,11 @@ export default function LoginPage() {
     // 2. SIGN UP FLOW
     else if (isSignUp) {
       
-      // CHECK PASSWORD SECURITY BEFORE SAVING
       const validationError = validatePassword(password);
       if (validationError) {
         setError(validationError);
         setIsLoading(false);
-        return; // Stop the sign-up process immediately
+        return; 
       }
 
       const { error: authError } = await supabase.auth.signUp({
@@ -76,14 +74,15 @@ export default function LoginPage() {
       if (authError) {
         setError(authError.message);
       } else {
-        setSuccessMsg("Account created successfully! Please check your email inbox to verify your account before signing in.");
+        // THE FIX: Updated the success message to set expectations about Admin Approval
+        setSuccessMsg("Account created successfully! Your account is currently pending. Please wait for an administrator to review and approve your access. You will receive an email once approved.");
         setIsSignUp(false); 
         setPassword(""); 
         setUsername("");
         setFullName("");
       }
     } 
-    // 3. SIGN IN FLOW (With the Admin Approval Bouncer)
+    // 3. SIGN IN FLOW
     else {
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email,
@@ -177,7 +176,7 @@ export default function LoginPage() {
             {successMsg && (
               <div className="bg-green-50 text-green-700 p-4 rounded-lg text-sm font-medium mb-6 border border-green-100 flex items-start gap-3">
                 <i className="ti ti-check text-lg mt-0.5"></i>
-                <span>{successMsg}</span>
+                <span className="leading-relaxed">{successMsg}</span>
               </div>
             )}
 
@@ -216,7 +215,6 @@ export default function LoginPage() {
                     )}
                   </div>
                   
-                  {/* Show helpful instructions only when they are signing up */}
                   {isSignUp && (
                     <p className="text-[10px] text-sol-dark/40 mb-2 font-medium">
                       Must be at least 8 characters, with 1 number and 1 letter.

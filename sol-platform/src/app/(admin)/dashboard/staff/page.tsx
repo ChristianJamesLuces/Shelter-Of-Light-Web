@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+// THE FIX: Import the new email function
+import { sendStaffApprovalEmail } from '@/app/actions/email'; 
 
 export default function StaffManagementPage() {
   const supabase = createClient();
@@ -12,7 +14,7 @@ export default function StaffManagementPage() {
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'pending', 'admin', 'staff'
+  const [statusFilter, setStatusFilter] = useState('all'); 
 
   // Edit State
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -33,11 +35,23 @@ export default function StaffManagementPage() {
     setIsLoading(false);
   };
 
-  const toggleApproval = async (userId: number, currentStatus: boolean) => {
+  // THE FIX: Passed in email and name so we can send the email!
+  const toggleApproval = async (userId: number, currentStatus: boolean, userEmail: string, userName: string) => {
     const newStatus = !currentStatus;
     const { error } = await supabase.from('users').update({ is_active: newStatus }).eq('user_id', userId);
+    
     if (!error) {
       setStaff(staff.map(user => user.user_id === userId ? { ...user, is_active: newStatus } : user));
+      
+      // If we just APPROVED them (newStatus is true), send the email!
+      if (newStatus === true && userEmail) {
+        try {
+          await sendStaffApprovalEmail(userEmail, userName);
+        } catch (err) {
+          console.warn("Could not send approval email", err);
+        }
+      }
+      
     } else {
       alert('Error updating user status.');
     }
@@ -64,16 +78,13 @@ export default function StaffManagementPage() {
     }
   };
 
-  // THE MAGIC: Filter the staff list before displaying it
   const filteredStaff = staff.filter((user) => {
-    // 1. Check Search Query (matches name, username, or email)
     const searchLower = searchQuery.toLowerCase();
     const matchesSearch = 
       (user.full_name?.toLowerCase().includes(searchLower)) ||
       (user.username?.toLowerCase().includes(searchLower)) ||
       (user.email?.toLowerCase().includes(searchLower));
 
-    // 2. Check Dropdown Filter
     let matchesFilter = true;
     if (statusFilter === 'active') matchesFilter = user.is_active === true;
     if (statusFilter === 'pending') matchesFilter = user.is_active === false;
@@ -97,10 +108,9 @@ export default function StaffManagementPage() {
         </button>
       </div>
 
-      {/* NEW: Search & Filter Bar */}
+      {/* Search & Filter Bar */}
       <div className="bg-white p-3 rounded-2xl shadow-sm border border-sol-dark/10 mb-6 flex flex-col sm:flex-row gap-3">
         
-        {/* Search Input */}
         <div className="relative flex-1">
           <i className="ti ti-search absolute left-4 top-1/2 -translate-y-1/2 text-sol-dark/40 text-lg"></i>
           <input 
@@ -112,7 +122,6 @@ export default function StaffManagementPage() {
           />
         </div>
 
-        {/* Filter Dropdown */}
         <div className="relative min-w-[200px]">
           <i className="ti ti-filter absolute left-4 top-1/2 -translate-y-1/2 text-sol-dark/40 text-lg pointer-events-none"></i>
           <select 
@@ -218,14 +227,14 @@ export default function StaffManagementPage() {
                       <div className="flex items-center justify-end gap-2">
                         {user.is_active ? (
                           <button 
-                            onClick={() => toggleApproval(user.user_id, user.is_active)}
+                            onClick={() => toggleApproval(user.user_id, user.is_active, user.email, user.full_name || user.username)}
                             className="text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg transition-colors border border-red-100"
                           >
                             Revoke
                           </button>
                         ) : (
                           <button 
-                            onClick={() => toggleApproval(user.user_id, user.is_active)}
+                            onClick={() => toggleApproval(user.user_id, user.is_active, user.email, user.full_name || user.username)}
                             className="text-xs font-bold text-sol-dark bg-sol-yellow hover:bg-yellow-400 px-4 py-2 rounded-lg transition-colors shadow-sm"
                           >
                             Approve

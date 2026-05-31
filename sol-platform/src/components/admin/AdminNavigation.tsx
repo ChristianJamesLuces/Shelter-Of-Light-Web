@@ -81,11 +81,15 @@ export default function AdminNavigation() {
       
       {/* Logo Area */}
       <div className="flex items-center gap-2 mb-6 px-1 shrink-0">
-        <div className="w-7 h-7 bg-sol-yellow rounded-full flex items-center justify-center shrink-0">
-          <i className="ti ti-paw text-sol-dark text-sm" aria-hidden="true"></i>
-        </div>
+        
+        {/* THE FIX: Swapped the generic paw print for your official logo! */}
+        <img 
+          src="/sol-logo.jpg" 
+          alt="Shelter of Light Logo" 
+          className="w-8 h-8 rounded-full object-cover shrink-0 border border-sol-dark/20" 
+        />
+        
         <div>
-          {/* THE FIX: Changed to general branding for both Staff and Admin */}
           <div className="text-white font-medium text-xs">Shelter of Light</div>
           <div className="text-white/35 text-[10px]">Management Portal</div>
         </div>
@@ -118,7 +122,6 @@ export default function AdminNavigation() {
             {initials}
           </div>
           <div className="overflow-hidden">
-            {/* THE FIX: Replaced Email with Username */}
             <div className="text-white text-[11px] truncate" title={userEmail || ''}>
               {username}
             </div>
