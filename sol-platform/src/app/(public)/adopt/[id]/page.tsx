@@ -35,8 +35,10 @@ export default async function AnimalProfile({ params }: { params: { id: string }
           </span>
         </div>
 
-        {/* Right Side: Comprehensive Details */}
-        <div className="md:w-1/2 p-8 flex flex-col h-full max-h-[800px] overflow-y-auto">
+        {/* Right Side: Comprehensive Details 
+            FIX: Moved max-h and overflow strictly to the 'md:' (desktop) breakpoint 
+        */}
+        <div className="md:w-1/2 p-6 md:p-8 flex flex-col md:max-h-[800px] md:overflow-y-auto">
           
           <div className="mb-6">
             <h1 className="text-4xl font-bold text-sol-dark mb-1">{animal.name}</h1>
@@ -46,7 +48,7 @@ export default async function AnimalProfile({ params }: { params: { id: string }
           </div>
 
           {/* 1. Basic Identity Quick Facts */}
-          <div className="grid grid-cols-3 gap-3 mb-8 border-y border-sol-dark/10 py-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8 border-y border-sol-dark/10 py-6">
             <div className="bg-sol-cream/30 border border-sol-dark/5 px-3 py-2 rounded-lg">
               <span className="text-sol-dark/40 block text-[9px] uppercase font-bold tracking-wider">Species</span>
               <span className="font-medium text-sol-dark text-sm capitalize">{animal.species}</span>
@@ -82,14 +84,12 @@ export default async function AnimalProfile({ params }: { params: { id: string }
             )}
             
             <div className="flex flex-wrap gap-2">
-              {/* Checking your specific database column names! */}
               {animal.good_with_cats === 'yes' && (
                 <span className="bg-blue-50 text-blue-700 text-xs px-3 py-1.5 rounded-md border border-blue-100 font-medium">✓ Good with Cats</span>
               )}
               {animal.good_with_dogs === 'yes' && (
                 <span className="bg-blue-50 text-blue-700 text-xs px-3 py-1.5 rounded-md border border-blue-100 font-medium">✓ Good with Dogs</span>
               )}
-              {/* good_with_children is a boolean in your DB */}
               {animal.good_with_children && (
                 <span className="bg-blue-50 text-blue-700 text-xs px-3 py-1.5 rounded-md border border-blue-100 font-medium">✓ Good with Children</span>
               )}
@@ -103,7 +103,6 @@ export default async function AnimalProfile({ params }: { params: { id: string }
             </h2>
             
             <div className="flex flex-wrap gap-2 mb-4">
-              {/* Checking your exact boolean columns */}
               {animal.kapon_status && (
                 <span className="bg-green-50 text-green-700 text-xs px-3 py-1.5 rounded-md border border-green-100 font-medium">Spayed/Neutered</span>
               )}
@@ -126,7 +125,7 @@ export default async function AnimalProfile({ params }: { params: { id: string }
             )}
           </div>
 
-          {/* 4. Special Needs & Diet (Only shows if they exist) */}
+          {/* 4. Special Needs & Diet */}
           {(animal.special_needs || animal.diet_restrictions) && (
             <div className="mb-8 bg-orange-50 border border-orange-200 p-4 rounded-xl">
               <h2 className="text-sm font-bold text-orange-900 mb-2 uppercase tracking-wider flex items-center gap-2">
@@ -151,8 +150,11 @@ export default async function AnimalProfile({ params }: { params: { id: string }
             </p>
           </div>
 
-          {/* Action Buttons */}
-          <div className="mt-auto pt-6 border-t border-sol-dark/10 flex flex-col sm:flex-row gap-4 sticky bottom-0 bg-white pb-2">
+          {/* Action Buttons 
+              FIX: Removed 'sticky bottom-0' so they flow naturally beneath the content. 
+              Added 'md:mt-auto mt-8' to ensure spacing. 
+          */}
+          <div className="mt-8 md:mt-auto pt-6 border-t border-sol-dark/10 flex flex-col sm:flex-row gap-4 bg-white">
             <Link 
               href={`/adopt/${animal.animal_id}/apply`}
               className="flex-1 bg-sol-dark text-sol-yellow text-center py-4 rounded-lg font-bold text-base hover:bg-black transition-colors shadow-md block"
