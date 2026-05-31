@@ -21,10 +21,17 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Helper to clear messages when switching views
   const resetMessages = () => {
     setError(null);
     setSuccessMsg(null);
+  };
+
+  // The new Password Security Validator
+  const validatePassword = (pwd: string) => {
+    if (pwd.length < 8) return "Password must be at least 8 characters long.";
+    if (!/\d/.test(pwd)) return "Password must contain at least one number.";
+    if (!/[a-zA-Z]/.test(pwd)) return "Password must contain at least one letter.";
+    return null;
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -46,6 +53,15 @@ export default function LoginPage() {
     } 
     // 2. SIGN UP FLOW
     else if (isSignUp) {
+      
+      // CHECK PASSWORD SECURITY BEFORE SAVING
+      const validationError = validatePassword(password);
+      if (validationError) {
+        setError(validationError);
+        setIsLoading(false);
+        return; // Stop the sign-up process immediately
+      }
+
       const { error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -69,7 +85,6 @@ export default function LoginPage() {
     } 
     // 3. SIGN IN FLOW (With the Admin Approval Bouncer)
     else {
-      // Authenticate with Supabase
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -79,19 +94,16 @@ export default function LoginPage() {
         setError("Invalid email or password. Please try again.");
       } else if (authData.user) {
         
-        // THE BOUNCER: Check if the Admin has approved them in the public.users table
         const { data: profile } = await supabase
           .from('users')
           .select('is_active')
           .eq('email', email)
           .single();
 
-        // If they are explicitly NOT true, kick them out!
-        if (profile && profile.is_active !== true) {
-          await supabase.auth.signOut(); // Immediately destroy their session
-          setError("Access Denied: Your account is pending Admin approval. Please wait to be activated.");
+        if (!profile || profile.is_active !== true) {
+          await supabase.auth.signOut(); 
+          setError("Access Denied: Your account is pending approval or has been removed by an Admin.");
         } else {
-          // Approved! Let them into the dashboard.
           router.push("/dashboard");
           router.refresh(); 
         }
@@ -106,8 +118,8 @@ export default function LoginPage() {
       
       {/* LEFT SIDE: Branding Panel */}
       <div className="hidden lg:flex w-1/2 bg-sol-dark flex-col justify-between p-12 relative overflow-hidden">
-        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-sol-yellow/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-black/40 rounded-full blur-3xl"></div>
+        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-sol-yellow/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-black/40 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="relative z-10 flex items-center gap-3">
           <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center border-2 border-sol-yellow/20">
@@ -171,7 +183,6 @@ export default function LoginPage() {
 
             <form onSubmit={handleAuth} className="space-y-5">
               
-              {/* Only show Name/Username for Sign Up */}
               {!isForgotPassword && isSignUp && (
                 <>
                   <div>
@@ -185,30 +196,34 @@ export default function LoginPage() {
                 </>
               )}
 
-              {/* Email is always shown */}
               <div>
                 <label className="block text-xs font-bold text-sol-dark/70 uppercase tracking-wider mb-2">Email Address</label>
                 <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-sol-dark/20 focus:outline-none focus:border-sol-yellow focus:ring-1 focus:ring-sol-yellow transition-all bg-[#fcfcfb]" placeholder="name@shelteroflight.com"/>
               </div>
 
-              {/* Only show Password if NOT recovering */}
               {!isForgotPassword && (
                 <div>
-                  <label className="block text-xs font-bold text-sol-dark/70 uppercase tracking-wider mb-2">Password</label>
-                  <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-sol-dark/20 focus:outline-none focus:border-sol-yellow focus:ring-1 focus:ring-sol-yellow transition-all bg-[#fcfcfb]" placeholder="••••••••"/>
-                  
-                  {/* FORGOT PASSWORD LINK */}
-                  {!isSignUp && (
-                    <div className="mt-2 text-right">
+                  <div className="flex justify-between items-end mb-1">
+                    <label className="block text-xs font-bold text-sol-dark/70 uppercase tracking-wider">Password</label>
+                    {!isSignUp && (
                       <button 
                         type="button" 
                         onClick={() => { setIsForgotPassword(true); resetMessages(); }}
-                        className="text-xs text-sol-dark/40 hover:text-sol-yellow transition-colors font-medium"
+                        className="text-xs text-sol-dark/40 hover:text-sol-yellow transition-colors font-medium mb-1"
                       >
                         Forgot password?
                       </button>
-                    </div>
+                    )}
+                  </div>
+                  
+                  {/* Show helpful instructions only when they are signing up */}
+                  {isSignUp && (
+                    <p className="text-[10px] text-sol-dark/40 mb-2 font-medium">
+                      Must be at least 8 characters, with 1 number and 1 letter.
+                    </p>
                   )}
+                  
+                  <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-sol-dark/20 focus:outline-none focus:border-sol-yellow focus:ring-1 focus:ring-sol-yellow transition-all bg-[#fcfcfb]" placeholder="••••••••"/>
                 </div>
               )}
 
@@ -225,9 +240,7 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Bottom Footer Links */}
             <div className="mt-8 text-center border-t border-sol-dark/5 pt-6 text-sm text-sol-dark/60 font-medium">
-              
               {isForgotPassword ? (
                  <button type="button" onClick={() => { setIsForgotPassword(false); resetMessages(); }} className="text-sol-dark hover:text-sol-yellow transition-colors underline decoration-2 underline-offset-4">
                   &larr; Back to Login

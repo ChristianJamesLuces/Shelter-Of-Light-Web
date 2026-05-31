@@ -1,217 +1,191 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 
-export default function ApplicationsPage() {
+export default function ApplicationsPipelinePage() {
   const supabase = createClient();
   const [applications, setApplications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  // Search and Filter State
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-
-  const fetchApplications = async () => {
-    setIsRefreshing(true);
-    const { data, error } = await supabase
-      .from('applications')
-      .select(`
-        *,
-        adopters (*),
-        animals (
-          *,
-          animal_photos(file_url)
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching applications:', error);
-    } else if (data) {
-      setApplications(data);
-    }
-    setIsLoading(false);
-    setIsRefreshing(false);
-  };
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchApplications();
-  }, [supabase]);
+  }, []);
 
-  // Filter Logic
-  const filteredApps = applications.filter(app => {
-    // 1. Check Status Filter
-    const matchesStatus = statusFilter === 'all' || app.status === statusFilter;
-    
-    // 2. Check Search Term (searches adopter name, email, and animal name safely)
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = 
-      (app.adopters?.full_name || '').toLowerCase().includes(searchLower) ||
-      (app.adopters?.email || '').toLowerCase().includes(searchLower) ||
-      (app.animals?.name || '').toLowerCase().includes(searchLower);
+  const fetchApplications = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('v_application_inbox')
+      .select('*')
+      .order('application_date', { ascending: false });
 
-    return matchesStatus && matchesSearch;
-  });
-
-  if (isLoading) {
-    return <div className="p-12 text-center text-sol-dark/50 font-medium">Loading applications...</div>;
-  }
-
-  // Helper function to color-code the statuses
-  const getStatusBadge = (status: string) => {
-    switch(status) {
-      case 'approved': return <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Approved</span>;
-      case 'rejected': return <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Rejected</span>;
-      case 'interview': return <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Interview</span>;
-      case 'under_review': return <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Reviewing</span>;
-      default: return <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">New</span>;
-    }
+    if (data) setApplications(data);
+    if (error) console.error("Error fetching applications:", error);
+    setIsLoading(false);
   };
 
+  const updateStatus = async (appId: string, newStatus: string) => {
+    setIsUpdating(true);
+    const currentApp = applications.find(a => a.application_id === appId);
+    const { error: appError } = await supabase.from('applications').update({ status: newStatus }).eq('application_id', appId);
+
+    if (appError) {
+      alert(`Database Error: ${appError.message}`);
+      setIsUpdating(false);
+      return;
+    }
+
+    if (newStatus === 'approved') {
+      const { data: appData } = await supabase.from('applications').select('animal_id').eq('application_id', appId).single();
+      if (appData?.animal_id) await supabase.from('animals').update({ adoption_status: 'adopted' }).eq('animal_id', appData.animal_id);
+    } else if (currentApp?.status === 'approved' && newStatus !== 'approved') {
+      const { data: appData } = await supabase.from('applications').select('animal_id').eq('application_id', appId).single();
+      if (appData?.animal_id) await supabase.from('animals').update({ adoption_status: 'available' }).eq('animal_id', appData.animal_id);
+    }
+
+    setApplications(apps => apps.map(app => app.application_id === appId ? { ...app, status: newStatus } : app));
+    setIsUpdating(false);
+  };
+
+  const filteredApps = applications.filter(app => {
+    const searchLower = searchQuery.toLowerCase();
+    const adopterMatch = (app.adopter_name || '').toLowerCase().includes(searchLower);
+    const animalMatch = (app.animal_name || '').toLowerCase().includes(searchLower);
+    return adopterMatch || animalMatch;
+  });
+
+  const getAppsByStatus = (status: string) => filteredApps.filter(app => app.status?.toLowerCase() === status);
+
+  const columns = [
+    { id: 'submitted', title: '1. Form Review', description: 'Reviewing initial application details.', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', prevStatus: null, nextStatus: 'interview', nextLabel: 'Pass Form \u2192' },
+    { id: 'interview', title: '2. Interview Process', description: 'Video call & virtual home tour phase.', color: 'bg-blue-100 text-blue-800 border-blue-200', prevStatus: 'submitted', nextStatus: 'handover', nextLabel: 'Pass Interview \u2192' },
+    { id: 'handover', title: '3. Handover', description: 'Signing contract & arranging pickup.', color: 'bg-purple-100 text-purple-800 border-purple-200', prevStatus: 'interview', nextStatus: 'approved', nextLabel: 'Complete Adoption!' }
+  ];
+
   return (
-    <div className="max-w-6xl mx-auto pb-12">
+    <div className="p-4 sm:p-8 max-w-[1600px] mx-auto font-sans h-screen flex flex-col overflow-hidden">
       
-      {/* Restored Header Section with Filters */}
-      <div className="mb-8 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+      <div className="mb-6 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4 shrink-0">
         <div>
-          <h1 className="font-serif text-3xl font-bold text-sol-dark mb-1">Applications</h1>
-          <p className="text-sol-dark/60 text-sm">{filteredApps.length} total applications</p>
+          <h1 className="text-3xl font-serif font-bold text-sol-dark mb-2">Adoption Pipeline</h1>
+          <p className="text-sol-dark/60 text-sm">Track and manage applicants through the 3-step adoption process.</p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          
-          {/* Search Bar */}
-          <div className="relative">
+        
+        <div className="flex items-center gap-3 w-full lg:w-auto">
+          <div className="relative flex-1 lg:w-72">
             <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-sol-dark/40"></i>
-            <input
-              type="text"
-              placeholder="Search applicant name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 pr-4 py-2 rounded-lg border border-sol-dark/10 text-sm focus:outline-none focus:border-sol-yellow bg-white w-64 shadow-sm"
-            />
+            <input type="text" placeholder="Search applicant or animal..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-9 pr-4 py-2 rounded-xl bg-white border border-sol-dark/10 focus:border-sol-yellow focus:ring-1 focus:ring-sol-yellow transition-all text-sm outline-none shadow-sm"/>
           </div>
-
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 rounded-lg border border-sol-dark/10 text-sm focus:outline-none focus:border-sol-yellow bg-white shadow-sm appearance-none cursor-pointer pr-8 bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23131313%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-no-repeat bg-[right_12px_center]"
-          >
-            <option value="all">All Statuses</option>
-            <option value="submitted">New / Submitted</option>
-            <option value="under_review">Reviewing</option>
-            <option value="interview">Interview</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-
-          {/* Refresh Data Button */}
-          <button
-            onClick={fetchApplications}
-            disabled={isRefreshing}
-            className="bg-sol-dark text-sol-yellow px-4 py-2 rounded-lg text-sm font-bold hover:bg-black transition-colors disabled:opacity-70 flex items-center gap-2 shadow-sm"
-          >
-            <i className={`ti ti-refresh ${isRefreshing ? 'animate-spin' : ''}`}></i>
-            {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+          <button onClick={fetchApplications} disabled={isLoading || isUpdating} className="text-sm font-bold bg-white border border-sol-dark/10 text-sol-dark hover:bg-sol-cream px-4 py-2 rounded-xl transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50">
+            <i className={`ti ti-refresh text-lg ${isLoading ? 'animate-spin' : ''}`}></i> <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
       </div>
 
-      {/* Empty State */}
-      {filteredApps.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-sol-dark/10 p-16 text-center">
-          <div className="w-16 h-16 bg-sol-cream text-sol-yellow rounded-full flex items-center justify-center mx-auto mb-4">
-            <i className="ti ti-file-x text-3xl"></i>
-          </div>
-          <h3 className="text-lg font-bold text-sol-dark mb-2">No Applications Found</h3>
-          <p className="text-sol-dark/60 text-sm max-w-md mx-auto">
-            {searchTerm || statusFilter !== 'all' 
-              ? "No applications match your current filters. Try adjusting your search." 
-              : "There are currently no adoption applications in the system."}
-          </p>
-        </div>
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center text-sol-dark/50"><i className="ti ti-loader animate-spin text-4xl mb-3 block text-sol-yellow"></i></div>
       ) : (
-        /* Data Table */
-        <div className="bg-white rounded-xl shadow-sm border border-sol-dark/10 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-[#f8f7f2] text-sol-dark/60 font-bold uppercase tracking-wider text-[10px] border-b border-sol-dark/10">
-                <tr>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Animal</th>
-                  <th className="px-6 py-4">Applicant</th>
-                  <th className="px-6 py-4">Date</th>
-                  <th className="px-6 py-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-sol-dark/5">
-                {filteredApps.map((app) => {
-                  
-                  // Safe extraction just in case an animal or adopter was deleted
-                  const animalName = app.animals?.name || 'Unknown (Deleted)';
-                  const animalSpecies = app.animals?.species || 'N/A';
-                  const animalPhotoUrl = app.animals?.animal_photos?.[0]?.file_url;
-                  
-                  const adopterName = app.adopters?.full_name || 'Unknown Applicant';
-                  const adopterEmail = app.adopters?.email || 'No email';
+        <div className="flex-1 overflow-y-auto pb-8 pr-2 space-y-8">
+          
+          <div>
+            <h2 className="font-serif font-bold text-sol-dark text-xl border-b border-sol-dark/10 pb-2 mb-4">Completed & Archived</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-[220px]">
+              
+              <div className="bg-white rounded-2xl border border-green-200 shadow-sm overflow-hidden flex flex-col h-full">
+                <div className="p-3 border-b border-green-100 bg-green-50 shrink-0">
+                  <h2 className="font-bold text-green-800 flex justify-between items-center text-sm">
+                    Successfully Adopted <span className="text-xs font-bold bg-green-200 text-green-800 px-2 py-0.5 rounded-full">{getAppsByStatus('approved').length}</span>
+                  </h2>
+                </div>
+                <div className="p-3 overflow-y-auto flex-1 space-y-2 bg-green-50/30">
+                  {getAppsByStatus('approved').map(app => (
+                    <div key={app.application_id} className="bg-white p-3 rounded-lg border border-green-100 flex justify-between items-center group">
+                      <div>
+                        <div className="font-bold text-xs text-sol-dark">{app.adopter_name || 'Unknown'}</div>
+                        <div className="text-[10px] text-sol-dark/50">Adopted {app.animal_name}</div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                         <button onClick={() => updateStatus(app.application_id, 'handover')} className="text-[10px] text-green-800/50 hover:text-green-800 underline font-bold opacity-0 group-hover:opacity-100 transition-opacity">Revert</button>
+                         {/* CORRECTED URL */}
+                         <Link href={`/applications/${app.application_id}`} className="text-green-600/50 hover:text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" title="View Application"><i className="ti ti-external-link"></i></Link>
+                         <i className="ti ti-check text-green-500"></i>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-                  return (
-                    <tr key={app.application_id} className="hover:bg-sol-cream/30 transition-colors">
-                      
-                      {/* Status Badge */}
-                      <td className="px-6 py-4">
-                        {getStatusBadge(app.status)}
-                      </td>
+              <div className="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden flex flex-col h-full">
+                <div className="p-3 border-b border-red-50 bg-red-50 shrink-0">
+                  <h2 className="font-bold text-red-800 flex justify-between items-center text-sm">
+                    Rejected Applications <span className="text-xs font-bold bg-red-100 text-red-800 px-2 py-0.5 rounded-full">{getAppsByStatus('rejected').length}</span>
+                  </h2>
+                </div>
+                <div className="p-3 overflow-y-auto flex-1 space-y-2 bg-red-50/30">
+                  {getAppsByStatus('rejected').map(app => (
+                    <div key={app.application_id} className="bg-white p-3 rounded-lg border border-red-100 flex justify-between items-center opacity-70 group">
+                      <div>
+                        <div className="font-bold text-xs text-sol-dark">{app.adopter_name || 'Unknown'}</div>
+                        <div className="text-[10px] text-sol-dark/50">Applied for {app.animal_name}</div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {/* CORRECTED URL */}
+                        <Link href={`/applications/${app.application_id}`} className="text-red-600/50 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity" title="View Application"><i className="ti ti-external-link"></i></Link>
+                        <button onClick={() => updateStatus(app.application_id, 'submitted')} className="text-[10px] text-sol-dark/50 hover:text-sol-dark underline font-bold">Restore</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-                      {/* Animal Info */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-sol-dark/5 overflow-hidden shrink-0 border border-sol-dark/10 flex items-center justify-center">
-                            {animalPhotoUrl ? (
-                              <img src={animalPhotoUrl} alt={animalName} className="w-full h-full object-cover" />
-                            ) : (
-                              <i className="ti ti-paw text-sol-dark/20"></i>
-                            )}
-                          </div>
-                          <div>
-                            <div className="font-bold text-sol-dark">{animalName}</div>
-                            <div className="text-[11px] text-sol-dark/50 capitalize font-medium">{animalSpecies}</div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Adopter Info */}
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-sol-dark">{adopterName}</div>
-                        <div className="text-xs text-sol-dark/60 truncate max-w-[150px]" title={adopterEmail}>{adopterEmail}</div>
-                      </td>
-
-                      {/* Dates */}
-                      <td className="px-6 py-4">
-                        <div className="text-sol-dark font-medium">
-                          {new Date(app.created_at || app.application_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </div>
-                      </td>
-
-                      {/* Action Button */}
-                      <td className="px-6 py-4 text-right">
-                        <Link 
-                          href={`/applications/${app.application_id}`}
-                          className="inline-flex items-center justify-center gap-2 bg-sol-cream hover:bg-sol-yellow/20 text-sol-dark px-3 py-1.5 rounded-md text-xs font-bold transition-colors border border-sol-dark/5"
-                        >
-                          Review &rarr;
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            </div>
           </div>
+
+          <div>
+            <h2 className="font-serif font-bold text-sol-dark text-xl border-b border-sol-dark/10 pb-2 mb-4">Active Pipeline</h2>
+            <div className="flex gap-6 h-[500px] min-w-max items-start overflow-x-auto pb-4">
+              
+              {columns.map((col) => (
+                <div key={col.id} className="w-[320px] bg-white rounded-2xl border border-sol-dark/10 flex flex-col max-h-full shrink-0 shadow-sm">
+                  <div className="p-4 border-b border-sol-dark/5 bg-[#f8f7f2] rounded-t-2xl shrink-0">
+                    <div className="flex justify-between items-center mb-1">
+                      <h2 className="font-bold text-sol-dark">{col.title}</h2>
+                      <span className="text-xs font-bold bg-sol-dark/10 text-sol-dark px-2 py-0.5 rounded-full">{getAppsByStatus(col.id).length}</span>
+                    </div>
+                    <p className="text-[10px] text-sol-dark/50 font-medium">{col.description}</p>
+                  </div>
+                  <div className="p-3 overflow-y-auto flex-1 space-y-3 bg-sol-cream/20">
+                    {getAppsByStatus(col.id).map(app => (
+                      <div key={app.application_id} className="bg-white p-4 rounded-xl border border-sol-dark/10 shadow-sm hover:shadow-md transition-shadow group">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-bold text-sol-dark text-sm">{app.adopter_name || 'Unknown Applicant'}</h3>
+                          {/* CORRECTED URL */}
+                          <Link href={`/applications/${app.application_id}`} className="text-sol-dark/30 hover:text-sol-yellow transition-colors" title="View Full Application"><i className="ti ti-external-link"></i></Link>
+                        </div>
+                        <div className="text-xs text-sol-dark/70 mb-4 flex items-center gap-1.5 font-medium">
+                          <i className="ti ti-paw text-sol-yellow"></i> Applying for: <span className="font-bold">{app.animal_name || 'Unknown Animal'}</span>
+                        </div>
+                        <div className="flex gap-2 mt-4 pt-3 border-t border-sol-dark/5">
+                          {col.prevStatus && (
+                            <button onClick={() => updateStatus(app.application_id, col.prevStatus)} disabled={isUpdating} className="px-2 py-1.5 rounded-lg text-sol-dark/30 hover:text-sol-dark hover:bg-sol-dark/5 transition-colors disabled:opacity-50" title="Move Backwards">
+                              <i className="ti ti-arrow-left font-bold"></i>
+                            </button>
+                          )}
+                          <button onClick={() => updateStatus(app.application_id, 'rejected')} disabled={isUpdating} className="px-2 py-1.5 rounded-lg text-[10px] font-bold text-sol-dark/40 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">Reject</button>
+                          <button onClick={() => updateStatus(app.application_id, col.nextStatus)} disabled={isUpdating} className={`flex-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-colors disabled:opacity-50 border ${col.color}`}>{col.nextLabel}</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+            </div>
+          </div>
+
         </div>
       )}
     </div>

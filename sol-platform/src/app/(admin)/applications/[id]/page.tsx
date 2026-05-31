@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { sendStatusEmail } from '@/app/actions/email'; // Your Resend email function!
+import { sendStatusEmail } from '@/app/actions/email'; 
 
 export default function ApplicationReviewPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -13,38 +13,19 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
   const [appData, setAppData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [targetStatus, setTargetStatus] = useState<string>('submitted');
 
   useEffect(() => {
     async function fetchApplicationDetails() {
       const { data, error } = await supabase
         .from('applications')
-        .select(`
-          *,
-          adopters (*),
-          animals (
-            *,
-            animal_photos(file_url)
-          )
-        `)
+        .select(`*, adopters (*), animals (*, animal_photos(file_url))`)
         .eq('application_id', params.id)
         .single();
 
       if (data) {
-        // Automatically move from 'submitted' to 'under_review' when opened
-        if (data.status === 'submitted') {
-          const { error: updateError } = await supabase
-            .from('applications')
-            .update({ status: 'under_review' })
-            .eq('application_id', params.id);
-            
-          if (!updateError) {
-            setAppData({ ...data, status: 'under_review' });
-          } else {
-            setAppData(data);
-          }
-        } else {
-          setAppData(data);
-        }
+        setAppData(data);
+        setTargetStatus(data.status); 
       }
       setIsLoading(false);
     }
@@ -52,134 +33,91 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
   }, [params.id, supabase]);
 
   const handleUpdateStatus = async (newStatus: string) => {
+    if (!newStatus) return;
     setIsUpdating(true);
     
-    // 1. Update the application status in the database
-    const { error: appError } = await supabase
-      .from('applications')
-      .update({ status: newStatus })
-      .eq('application_id', params.id);
+    const { error: appError } = await supabase.from('applications').update({ status: newStatus }).eq('application_id', params.id);
 
     if (!appError) {
-      // 2. If approved, automatically mark the animal as 'adopted'
       if (newStatus === 'approved' && appData.animals?.animal_id) {
-        const { error: animalError } = await supabase
-          .from('animals')
-          .update({ adoption_status: 'adopted' })
-          .eq('animal_id', appData.animals.animal_id);
+        await supabase.from('animals').update({ adoption_status: 'adopted' }).eq('animal_id', appData.animals.animal_id);
+      } else if (appData.status === 'approved' && newStatus !== 'approved' && appData.animals?.animal_id) {
+        await supabase.from('animals').update({ adoption_status: 'available' }).eq('animal_id', appData.animals.animal_id);
+      }
 
-        if (animalError) {
-          console.error("Failed to update animal status:", animalError);
+      try {
+        if (['approved', 'rejected', 'interview'].includes(newStatus) && appData.adopters?.email) {
+            const fullName = appData.adopters.first_name ? `${appData.adopters.first_name} ${appData.adopters.last_name}` : (appData.adopters.full_name || 'Adopter');
+            await sendStatusEmail(appData.adopters.email, fullName, appData.animals?.name || 'the animal', newStatus);
         }
+      } catch (err) {
+        console.warn("Email limits hit or failed.", err);
       }
 
-      // 3. Trigger the Automated Status Email
-      if (['approved', 'rejected', 'interview'].includes(newStatus) && appData.adopters?.email) {
-        await sendStatusEmail(
-          appData.adopters.email,
-          appData.adopters.full_name || 'Adopter',
-          appData.animals?.name || 'the animal',
-          newStatus
-        );
-      }
-
-      alert(`Success! Status updated to ${newStatus} and email notification triggered.`);
       setAppData({ ...appData, status: newStatus });
+      setTargetStatus(newStatus);
     } else {
-      console.error(appError);
-      alert("Failed to update status. Please try again.");
+      alert("Failed to update status.");
     }
-    
     setIsUpdating(false);
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to permanently delete this application? This action cannot be undone.`)) {
-      return;
-    }
-
+    if (!confirm(`Are you sure you want to permanently delete this application? This action cannot be undone.`)) return;
     setIsUpdating(true);
     try {
-      // 1. Delete the application record
-      const { error: appError } = await supabase
-        .from('applications')
-        .delete()
-        .eq('application_id', params.id);
-
-      if (appError) throw appError;
-
-      // 2. Safely clean up orphaned adopter data (if it exists)
-      if (appData.adopter_id) {
-        await supabase
-          .from('adopters')
-          .delete()
-          .eq('adopter_id', appData.adopter_id);
-      }
-
-      alert('Application deleted successfully.');
+      await supabase.from('applications').delete().eq('application_id', params.id);
+      if (appData.adopter_id) await supabase.from('adopters').delete().eq('adopter_id', appData.adopter_id);
       router.push('/applications');
       router.refresh();
-        
     } catch (error: any) {
-      console.error("Delete Error:", error);
       alert(`Error deleting data: ${error.message || error}`);
       setIsUpdating(false);
     }
   };
 
-  if (isLoading) return <div className="p-12 text-center text-sol-dark/50">Loading application details...</div>;
-  
-  if (!appData) return (
-    <div className="p-12 text-center">
-      <h2 className="text-2xl font-bold mb-4">Application Not Found</h2>
-      <Link href="/applications" className="text-sol-yellow hover:underline">&larr; Back to Applications</Link>
-    </div>
-  );
+  if (isLoading) return <div className="p-12 text-center text-sol-dark/50"><i className="ti ti-loader animate-spin text-4xl mb-3 block text-sol-yellow"></i> Loading details...</div>;
+  if (!appData) return <div className="p-12 text-center"><h2 className="text-2xl font-bold mb-4">Application Not Found</h2><Link href="/applications" className="text-sol-yellow hover:underline">&larr; Back to Pipeline</Link></div>;
 
-  // Safely extract data using optional chaining to prevent null crashes
   const adopter = appData.adopters || {};
   const animal = appData.animals || {};
   const animalPhotoUrl = animal.animal_photos?.[0]?.file_url;
+  const adopterName = adopter.first_name ? `${adopter.first_name} ${adopter.last_name}` : (adopter.full_name || 'Unknown Adopter');
 
   const getStatusText = (status: string) => {
-    if (status === 'under_review') return 'In Review';
-    if (status === 'interview') return 'Interview Scheduled';
+    if (status === 'submitted') return '1. Form Review';
+    if (status === 'interview') return '2. Interview Phase';
+    if (status === 'handover') return '3. Handover Process';
     return status;
   };
 
+  // Helper to figure out what the "previous stage" is
+  const getPreviousStatus = (currentStatus: string) => {
+    if (currentStatus === 'interview') return 'submitted';
+    if (currentStatus === 'handover') return 'interview';
+    return null;
+  };
+
+  const prevStatus = getPreviousStatus(appData.status);
+
   return (
-    <div className="max-w-5xl mx-auto pb-12">
+    <div className="max-w-5xl mx-auto pb-12 p-4 sm:p-8 font-sans">
       
       <div className="mb-8">
         <div className="flex justify-between items-center mb-4">
-          <Link href="/applications" className="text-sm font-bold text-sol-dark/50 hover:text-sol-dark transition-colors inline-block">
-            &larr; Back to all applications
-          </Link>
-          
-          <button 
-            onClick={handleDelete} 
-            disabled={isUpdating}
-            className="text-xs bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg font-bold hover:bg-red-100 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
-          >
-            <i className="ti ti-trash"></i> Delete Application
-          </button>
+          <Link href="/applications" className="text-sm font-bold text-sol-dark/50 hover:text-sol-dark transition-colors inline-block">&larr; Back to Pipeline</Link>
+          <button onClick={handleDelete} disabled={isUpdating} className="text-xs bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg font-bold hover:bg-red-100 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"><i className="ti ti-trash"></i> Delete Application</button>
         </div>
 
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
           <div>
             <h1 className="font-serif text-3xl font-bold text-sol-dark">Application Review</h1>
-            <p className="text-sol-dark/60 mt-1">Submitted on {new Date(appData.created_at || appData.application_date).toLocaleDateString()}</p>
+            <p className="text-sol-dark/60 mt-1">Submitted on {new Date(appData.application_date || appData.created_at).toLocaleDateString()}</p>
           </div>
           
-          <div className="bg-white border border-sol-dark/10 px-6 py-3 rounded-xl shadow-sm text-center">
+          <div className="bg-white border border-sol-dark/10 px-6 py-3 rounded-xl shadow-sm text-center min-w-[150px]">
             <div className="text-[10px] uppercase tracking-widest text-sol-dark/40 font-bold mb-1">Current Status</div>
-            <div className={`font-bold capitalize ${
-              appData.status === 'approved' ? 'text-green-600' : 
-              appData.status === 'rejected' ? 'text-red-600' : 
-              appData.status === 'interview' ? 'text-purple-600' : 
-              appData.status === 'under_review' ? 'text-amber-600' :
-              'text-indigo-600'
-            }`}>
+            <div className={`font-bold capitalize ${appData.status === 'approved' ? 'text-green-600' : appData.status === 'rejected' ? 'text-red-600' : appData.status === 'handover' ? 'text-purple-600' : appData.status === 'interview' ? 'text-blue-600' : 'text-amber-600'}`}>
               {getStatusText(appData.status)}
             </div>
           </div>
@@ -188,13 +126,26 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          
           <div className="bg-white p-6 rounded-xl shadow-sm border border-sol-dark/10">
-            <h2 className="text-lg font-bold text-sol-dark border-b border-sol-dark/5 pb-3 mb-4">Applicant Profile</h2>
+            <div className="flex items-center justify-between border-b border-sol-dark/5 pb-3 mb-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-sol-yellow/20 flex items-center justify-center text-sol-dark"><i className="ti ti-user text-lg"></i></div>
+                    <h2 className="text-lg font-bold text-sol-dark">Applicant Profile</h2>
+                </div>
+                {adopter.fb_link && (
+                  <a href={adopter.fb_link} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs font-bold bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
+                    <i className="ti ti-brand-facebook text-lg"></i> Contact via FB
+                  </a>
+                )}
+            </div>
+            
             <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
-              <div><span className="block text-sol-dark/50 text-[10px] uppercase font-bold tracking-wider mb-1">Full Name</span> <span className="font-medium text-sol-dark">{adopter.full_name || 'Unknown Adopter'}</span></div>
+              <div><span className="block text-sol-dark/50 text-[10px] uppercase font-bold tracking-wider mb-1">Full Name</span> <span className="font-medium text-sol-dark">{adopterName}</span></div>
               <div><span className="block text-sol-dark/50 text-[10px] uppercase font-bold tracking-wider mb-1">Age</span> <span className="font-medium text-sol-dark">{adopter.age ? `${adopter.age} years old` : 'N/A'}</span></div>
               <div><span className="block text-sol-dark/50 text-[10px] uppercase font-bold tracking-wider mb-1">Email</span> <span className="font-medium text-sol-dark">{adopter.email || 'N/A'}</span></div>
               <div><span className="block text-sol-dark/50 text-[10px] uppercase font-bold tracking-wider mb-1">Phone</span> <span className="font-medium text-sol-dark">{adopter.phone || 'N/A'}</span></div>
+              <div className="col-span-2"><span className="block text-sol-dark/50 text-[10px] uppercase font-bold tracking-wider mb-1">FB / Messenger Link</span> <span className="font-medium text-blue-600 break-all">{adopter.fb_link || 'Not provided'}</span></div>
               <div className="col-span-2"><span className="block text-sol-dark/50 text-[10px] uppercase font-bold tracking-wider mb-1">Address</span> <span className="font-medium text-sol-dark">{adopter.address || 'N/A'}, {adopter.city || ''}</span></div>
               <div><span className="block text-sol-dark/50 text-[10px] uppercase font-bold tracking-wider mb-1">Occupation</span> <span className="font-medium text-sol-dark">{adopter.occupation || 'N/A'} ({adopter.employment_status || 'N/A'})</span></div>
             </div>
@@ -202,26 +153,17 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-sol-dark/10">
             <h2 className="text-lg font-bold text-sol-dark border-b border-sol-dark/5 pb-3 mb-4">Home Environment</h2>
-            <p className="text-sm text-sol-dark/80 leading-relaxed whitespace-pre-wrap">
-              {appData.home_environment_notes || 'No notes provided.'}
-            </p>
+            <p className="text-sm text-sol-dark/80 leading-relaxed whitespace-pre-wrap">{appData.home_environment_notes || 'No notes provided by the applicant.'}</p>
           </div>
         </div>
 
         <div className="space-y-6">
           <div className="bg-sol-dark text-white p-6 rounded-xl shadow-sm flex flex-col">
             <div className="text-[10px] uppercase tracking-widest text-white/50 font-bold mb-3">Applying For</div>
-            
-            <div className="h-48 w-full bg-black/30 rounded-lg mb-4 overflow-hidden relative border border-white/10 shadow-inner">
-              {animalPhotoUrl ? (
-                <img src={animalPhotoUrl} alt={animal.name || 'Animal'} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-white/20"><i className="ti ti-paw text-5xl"></i></div>
-              )}
+            <div className="h-48 w-full bg-black/30 rounded-lg mb-4 overflow-hidden relative border border-white/10 shadow-inner flex items-center justify-center">
+              {animalPhotoUrl ? <img src={animalPhotoUrl} alt={animal.name || 'Animal'} className="w-full h-full object-cover" /> : <i className="ti ti-paw text-5xl text-white/20"></i>}
             </div>
-
             <h2 className="font-serif text-2xl font-bold mb-4">{animal.name || 'Unknown Animal'}</h2>
-            
             <div className="space-y-2 text-sm text-white/80">
               <div className="flex justify-between border-b border-white/10 pb-2"><span>Species</span> <span className="capitalize font-medium">{animal.species || 'N/A'}</span></div>
               <div className="flex justify-between border-b border-white/10 pb-2"><span>Sex</span> <span className="capitalize font-medium">{animal.sex || 'N/A'}</span></div>
@@ -229,52 +171,82 @@ export default function ApplicationReviewPage({ params }: { params: { id: string
             </div>
           </div>
 
+          {/* Admin Actions - Now with "Move Back" Buttons! */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-sol-dark/10">
             <h2 className="text-lg font-bold text-sol-dark mb-4">Admin Actions</h2>
             
-            {appData.status === 'submitted' || appData.status === 'under_review' || appData.status === 'interview' ? (
+            {['submitted', 'interview', 'handover'].includes(appData.status) ? (
               <div className="space-y-3">
-                {appData.status !== 'interview' && (
+                
+                {/* THE FIX: Dynamic "Move Back" Button */}
+                {prevStatus && (
                   <button 
-                    onClick={() => handleUpdateStatus('interview')}
-                    disabled={isUpdating}
-                    className="w-full bg-purple-50 text-purple-700 border border-purple-200 py-3 rounded-lg font-bold text-sm hover:bg-purple-100 transition-colors disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
+                    onClick={() => handleUpdateStatus(prevStatus)} 
+                    disabled={isUpdating} 
+                    className="w-full bg-sol-dark/5 text-sol-dark/60 border border-sol-dark/10 py-2.5 rounded-lg font-bold text-sm hover:bg-sol-dark/10 hover:text-sol-dark transition-colors shadow-sm flex items-center justify-center gap-2 mb-2"
                   >
-                    <i className="ti ti-video"></i>
-                    {isUpdating ? 'Updating...' : 'Move to Interview Stage'}
+                    <i className="ti ti-arrow-left"></i> Move back to {getStatusText(prevStatus)}
                   </button>
                 )}
 
-                <button 
-                  onClick={() => handleUpdateStatus('approved')}
-                  disabled={isUpdating}
-                  className="w-full bg-green-600 text-white py-3 rounded-lg font-bold text-sm hover:bg-green-700 transition-colors disabled:opacity-50 shadow-sm"
-                >
-                  {isUpdating ? 'Updating...' : 'Approve Application'}
-                </button>
+                {/* Forward Pipeline Buttons */}
+                {appData.status === 'submitted' && (
+                  <button onClick={() => handleUpdateStatus('interview')} disabled={isUpdating} className="w-full bg-blue-50 text-blue-700 border border-blue-200 py-3 rounded-lg font-bold text-sm hover:bg-blue-100 transition-colors shadow-sm flex items-center justify-center gap-2">
+                    <i className="ti ti-video"></i> Pass Form (Move to Interview)
+                  </button>
+                )}
+
+                {appData.status === 'interview' && (
+                  <button onClick={() => handleUpdateStatus('handover')} disabled={isUpdating} className="w-full bg-purple-50 text-purple-700 border border-purple-200 py-3 rounded-lg font-bold text-sm hover:bg-purple-100 transition-colors shadow-sm flex items-center justify-center gap-2">
+                    <i className="ti ti-file-text"></i> Pass Interview (Move to Handover)
+                  </button>
+                )}
+
+                {appData.status === 'handover' && (
+                  <button onClick={() => handleUpdateStatus('approved')} disabled={isUpdating} className="w-full bg-green-600 text-white py-3 rounded-lg font-bold text-sm hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center gap-2">
+                    <i className="ti ti-check"></i> Complete Adoption!
+                  </button>
+                )}
                 
                 <button 
                   onClick={() => handleUpdateStatus('rejected')}
                   disabled={isUpdating}
-                  className="w-full bg-red-50 text-red-600 border border-red-200 py-3 rounded-lg font-bold text-sm hover:bg-red-100 transition-colors disabled:opacity-50 shadow-sm"
+                  className="w-full bg-red-50 text-red-600 border border-red-200 py-3 rounded-lg font-bold text-sm hover:bg-red-100 transition-colors disabled:opacity-50 shadow-sm mt-4"
                 >
                   Reject Application
                 </button>
               </div>
             ) : (
-              <div className="text-sm text-sol-dark/60 bg-sol-cream p-4 rounded-lg text-center border border-sol-dark/5 shadow-inner flex flex-col gap-2">
-                <div>This application has already been <strong className="capitalize text-sol-dark">{getStatusText(appData.status)}</strong>.</div>
+              <div className="text-sm text-sol-dark/60 bg-sol-cream p-4 rounded-lg text-center border border-sol-dark/5 shadow-inner flex flex-col gap-2 mb-4">
+                <div>This application has been closed and marked as <strong className="capitalize text-sol-dark">{getStatusText(appData.status)}</strong>.</div>
                 
                 {appData.status === 'approved' && (
                   <div className="text-green-700 font-bold bg-green-50 p-3 rounded border border-green-200 mt-2 flex items-center justify-center gap-2">
-                    <i className="ti ti-check"></i> Adoption Approved!
+                    <i className="ti ti-check"></i> Adoption Completed!
                   </div>
                 )}
               </div>
             )}
-          </div>
+            
+            {/* Master Manual Override Selector */}
+            <div className="mt-6 pt-6 border-t border-sol-dark/5">
+              <p className="text-[10px] text-sol-dark/50 mb-3 font-medium uppercase tracking-wider">Manual Override</p>
+              <div className="flex flex-col gap-3">
+                <select value={targetStatus} onChange={(e) => setTargetStatus(e.target.value)} className="w-full bg-[#f8f7f2] border border-sol-dark/10 px-4 py-3 rounded-lg text-sm font-bold text-sol-dark outline-none focus:border-sol-yellow shadow-sm">
+                  <option value="submitted">1. Form Review</option>
+                  <option value="interview">2. Interview Phase</option>
+                  <option value="handover">3. Handover Process</option>
+                  <option value="approved">✅ Successfully Adopted</option>
+                  <option value="rejected">❌ Rejected</option>
+                </select>
+                <button onClick={() => handleUpdateStatus(targetStatus)} disabled={isUpdating || targetStatus === appData.status} className="w-full bg-sol-dark text-sol-yellow py-3 rounded-lg font-bold text-sm hover:bg-black transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                  {isUpdating ? <><i className="ti ti-loader animate-spin"></i> Updating...</> : 'Save New Stage'}
+                </button>
+              </div>
+            </div>
 
-        </div>  
+          </div>
+        </div> 
       </div>
     </div>
   );

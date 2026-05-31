@@ -11,6 +11,7 @@ export default function AdminNavigation() {
   const supabase = createClient();
   
   const [userEmail, setUserEmail] = useState<string | null>('Loading...');
+  const [username, setUsername] = useState<string>('Loading...');
   const [userRole, setUserRole] = useState<string>('Loading Role...');
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
@@ -27,14 +28,14 @@ export default function AdminNavigation() {
           .eq('email', user.email)
           .single();
 
-        // Let's print exactly what the database returns to your Browser Console!
-        console.log("Supabase Profile Data:", profileData);
-
         if (error) {
           console.error("Could not fetch profile:", error);
           setUserRole('Staff');
+          setUsername('User');
         } else if (profileData) {
-          // THE FIX: We use Number() to guarantee it is treated as a math digit, not a string!
+          // Set the username from the database!
+          setUsername(profileData.username || 'User');
+
           if (Number(profileData.role_id) === 1) {
             setUserRole('Admin');
             setIsAdmin(true);
@@ -46,6 +47,7 @@ export default function AdminNavigation() {
       } else {
         setUserEmail('Not logged in');
         setUserRole('None');
+        setUsername('Guest');
       }
     };
     
@@ -69,8 +71,9 @@ export default function AdminNavigation() {
     navLinks.push({ name: 'Manage Staff', href: '/dashboard/staff', icon: 'ti-users' });
   }
 
-  const initials = userEmail && userEmail !== 'Loading...' && userEmail !== 'Not logged in' 
-    ? userEmail.substring(0, 2).toUpperCase() 
+  // Calculate initials based on the USERNAME instead of the email
+  const initials = username !== 'Loading...' && username !== 'Guest' 
+    ? username.substring(0, 2).toUpperCase() 
     : '??';
 
   return (
@@ -82,8 +85,9 @@ export default function AdminNavigation() {
           <i className="ti ti-paw text-sol-dark text-sm" aria-hidden="true"></i>
         </div>
         <div>
-          <div className="text-white font-medium text-xs">SoL Admin</div>
-          <div className="text-white/35 text-[10px]">Staff portal</div>
+          {/* THE FIX: Changed to general branding for both Staff and Admin */}
+          <div className="text-white font-medium text-xs">Shelter of Light</div>
+          <div className="text-white/35 text-[10px]">Management Portal</div>
         </div>
       </div>
 
@@ -114,8 +118,9 @@ export default function AdminNavigation() {
             {initials}
           </div>
           <div className="overflow-hidden">
+            {/* THE FIX: Replaced Email with Username */}
             <div className="text-white text-[11px] truncate" title={userEmail || ''}>
-              {userEmail}
+              {username}
             </div>
             <div className="text-sol-yellow/80 font-bold capitalize text-[10px] truncate">
               {userRole}
