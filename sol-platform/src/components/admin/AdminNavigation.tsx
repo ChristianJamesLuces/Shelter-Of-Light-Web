@@ -12,6 +12,7 @@ export default function AdminNavigation() {
   
   const [userEmail, setUserEmail] = useState<string | null>('Loading...');
   const [userRole, setUserRole] = useState<string>('Loading Role...');
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchUserAndRole = async () => {
@@ -22,26 +23,25 @@ export default function AdminNavigation() {
 
         const { data: profileData, error } = await supabase
           .from('users')
-          .select(`
-            *,
-            roles (
-              role_name
-            )
-          `)
+          .select('*')
           .eq('email', user.email)
           .single();
 
+        // Let's print exactly what the database returns to your Browser Console!
+        console.log("Supabase Profile Data:", profileData);
+
         if (error) {
-          console.error("Could not fetch role:", error);
-          setUserRole('Unassigned');
-        } else if (profileData && profileData.roles) {
-          const roleName = Array.isArray(profileData.roles) 
-            ? profileData.roles[0]?.role_name 
-            : (profileData.roles as any)?.role_name;
-            
-          setUserRole(roleName || 'Staff');
-        } else {
+          console.error("Could not fetch profile:", error);
           setUserRole('Staff');
+        } else if (profileData) {
+          // THE FIX: We use Number() to guarantee it is treated as a math digit, not a string!
+          if (Number(profileData.role_id) === 1) {
+            setUserRole('Admin');
+            setIsAdmin(true);
+          } else {
+            setUserRole('Staff');
+            setIsAdmin(false);
+          }
         }
       } else {
         setUserEmail('Not logged in');
@@ -64,6 +64,10 @@ export default function AdminNavigation() {
     { name: 'Applications', href: '/applications', icon: 'ti-file-text' },
     { name: 'Adoptions', href: '/adoptions', icon: 'ti-heart' },
   ];
+
+  if (isAdmin) {
+    navLinks.push({ name: 'Manage Staff', href: '/dashboard/staff', icon: 'ti-users' });
+  }
 
   const initials = userEmail && userEmail !== 'Loading...' && userEmail !== 'Not logged in' 
     ? userEmail.substring(0, 2).toUpperCase() 

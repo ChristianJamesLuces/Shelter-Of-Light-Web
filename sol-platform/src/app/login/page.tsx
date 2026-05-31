@@ -11,7 +11,7 @@ export default function LoginPage() {
 
   // State
   const [isSignUp, setIsSignUp] = useState(false);
-  const [isForgotPassword, setIsForgotPassword] = useState(false); // NEW STATE
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -42,7 +42,6 @@ export default function LoginPage() {
         setError(error.message);
       } else {
         setSuccessMsg("Password reset email sent! Check your inbox for the recovery link.");
-        // We leave them on the forgot password screen so they can read the message
       }
     } 
     // 2. SIGN UP FLOW
@@ -68,18 +67,34 @@ export default function LoginPage() {
         setFullName("");
       }
     } 
-    // 3. SIGN IN FLOW
+    // 3. SIGN IN FLOW (With the Admin Approval Bouncer)
     else {
-      const { error } = await supabase.auth.signInWithPassword({
+      // Authenticate with Supabase
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
         setError("Invalid email or password. Please try again.");
-      } else {
-        router.push("/dashboard");
-        router.refresh(); 
+      } else if (authData.user) {
+        
+        // THE BOUNCER: Check if the Admin has approved them in the public.users table
+        const { data: profile } = await supabase
+          .from('users')
+          .select('is_active')
+          .eq('email', email)
+          .single();
+
+        // If they are explicitly NOT true, kick them out!
+        if (profile && profile.is_active !== true) {
+          await supabase.auth.signOut(); // Immediately destroy their session
+          setError("Access Denied: Your account is pending Admin approval. Please wait to be activated.");
+        } else {
+          // Approved! Let them into the dashboard.
+          router.push("/dashboard");
+          router.refresh(); 
+        }
       }
     }
 
@@ -182,7 +197,7 @@ export default function LoginPage() {
                   <label className="block text-xs font-bold text-sol-dark/70 uppercase tracking-wider mb-2">Password</label>
                   <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-sol-dark/20 focus:outline-none focus:border-sol-yellow focus:ring-1 focus:ring-sol-yellow transition-all bg-[#fcfcfb]" placeholder="••••••••"/>
                   
-                  {/* FORGOT PASSWORD LINK MOVED UNDERNEATH */}
+                  {/* FORGOT PASSWORD LINK */}
                   {!isSignUp && (
                     <div className="mt-2 text-right">
                       <button 
