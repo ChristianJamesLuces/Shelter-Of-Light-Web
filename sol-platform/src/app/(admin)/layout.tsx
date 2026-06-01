@@ -6,16 +6,14 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    // We use a flex row so the sidebar sits on the left, and the main content fills the right.
-    // On mobile (default), it's a column, so the Top Bar sits on top.
-    <div className="flex flex-col md:flex-row min-h-screen bg-[#FDFBF7]">
+    // FIX: Changed from md:flex-row to lg:flex-row. 
+    // Now tablets get the full-screen mobile view, giving your data 100% of the screen width!
+    <div className="flex flex-col lg:flex-row h-screen bg-[#FDFBF7] overflow-hidden">
         
-      {/* Our new Sidebar component */}
       <AdminNavigation />
 
-      {/* The main content area where your pages will load */}
-      <main className="flex-1 h-screen overflow-y-auto">
-        <div className="p-4 md:p-8">
+      <main className="flex-1 overflow-y-auto w-full">
+        <div className="p-4 sm:p-6 lg:p-8">
           {children}
         </div>
       </main>

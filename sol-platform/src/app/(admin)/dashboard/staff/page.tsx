@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-// THE FIX: Import the new email function
+// Import the new email function
 import { sendStaffApprovalEmail } from '@/app/actions/email'; 
 
 export default function StaffManagementPage() {
@@ -35,7 +35,6 @@ export default function StaffManagementPage() {
     setIsLoading(false);
   };
 
-  // THE FIX: Passed in email and name so we can send the email!
   const toggleApproval = async (userId: number, currentStatus: boolean, userEmail: string, userName: string) => {
     const newStatus = !currentStatus;
     const { error } = await supabase.from('users').update({ is_active: newStatus }).eq('user_id', userId);
@@ -95,66 +94,67 @@ export default function StaffManagementPage() {
   });
 
   return (
-    <div className="p-4 sm:p-8 max-w-6xl mx-auto font-sans">
+    <div className="p-2 sm:p-4 md:p-8 max-w-6xl mx-auto font-sans">
       
       {/* Header Section */}
-      <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
+      <div className="mb-4 sm:mb-6 flex justify-between items-start sm:items-end gap-2 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-sol-dark mb-2">Staff Management</h1>
-          <p className="text-sol-dark/60 text-sm">Approve accounts, manage roles, and edit profiles.</p>
+          <h1 className="text-xl sm:text-3xl font-serif font-bold text-sol-dark mb-1 sm:mb-2">Staff Management</h1>
+          <p className="hidden sm:block text-sol-dark/60 text-sm">Approve accounts, manage roles, and edit profiles.</p>
         </div>
-        <button onClick={fetchStaff} className="text-sm font-bold bg-white border border-sol-dark/10 text-sol-dark hover:bg-sol-cream px-4 py-2 rounded-xl transition-colors flex items-center gap-2 shadow-sm">
-          <i className="ti ti-refresh text-lg"></i> Refresh
+        <button onClick={fetchStaff} className="text-[10px] sm:text-sm font-bold bg-white border border-sol-dark/10 text-sol-dark hover:bg-sol-cream px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl transition-colors flex items-center gap-1 sm:gap-2 shadow-sm shrink-0">
+          <i className="ti ti-refresh text-sm sm:text-lg"></i> <span className="hidden sm:inline">Refresh</span>
         </button>
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="bg-white p-3 rounded-2xl shadow-sm border border-sol-dark/10 mb-6 flex flex-col sm:flex-row gap-3">
+      <div className="bg-white p-2 sm:p-3 rounded-xl sm:rounded-2xl shadow-sm border border-sol-dark/10 mb-4 sm:mb-6 flex flex-row gap-2 w-full">
         
-        <div className="relative flex-1">
-          <i className="ti ti-search absolute left-4 top-1/2 -translate-y-1/2 text-sol-dark/40 text-lg"></i>
+        <div className="relative flex-1 min-w-0">
+          <i className="ti ti-search absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 text-sol-dark/40 text-xs sm:text-lg"></i>
           <input 
             type="text" 
-            placeholder="Search by name, username, or email..." 
+            placeholder="Search name..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 rounded-xl bg-[#f8f7f2] border-transparent focus:bg-white focus:border-sol-yellow focus:ring-1 focus:ring-sol-yellow transition-all text-sm outline-none"
+            className="w-full pl-7 sm:pl-11 pr-2 sm:pr-4 py-2 sm:py-3 rounded-lg sm:rounded-xl bg-[#f8f7f2] border-transparent focus:bg-white focus:border-sol-yellow focus:ring-1 focus:ring-sol-yellow transition-all text-[10px] sm:text-sm outline-none"
           />
         </div>
 
-        <div className="relative min-w-[200px]">
-          <i className="ti ti-filter absolute left-4 top-1/2 -translate-y-1/2 text-sol-dark/40 text-lg pointer-events-none"></i>
+        <div className="relative w-1/2 sm:w-1/3 min-w-0">
+          <i className="ti ti-filter absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 text-sol-dark/40 text-xs sm:text-lg pointer-events-none"></i>
           <select 
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full pl-11 pr-10 py-3 rounded-xl bg-[#f8f7f2] border-transparent focus:bg-white focus:border-sol-yellow focus:ring-1 focus:ring-sol-yellow transition-all text-sm outline-none appearance-none cursor-pointer font-medium text-sol-dark"
+            className="w-full pl-7 sm:pl-11 pr-6 sm:pr-10 py-2 sm:py-3 rounded-lg sm:rounded-xl bg-[#f8f7f2] border-transparent focus:bg-white focus:border-sol-yellow focus:ring-1 focus:ring-sol-yellow transition-all text-[10px] sm:text-sm outline-none appearance-none cursor-pointer font-medium text-sol-dark"
           >
-            <option value="all">All Accounts</option>
-            <option value="active">Active Only</option>
-            <option value="pending">Pending Approval</option>
-            <option value="admin">Admins Only</option>
-            <option value="staff">Staff Only</option>
+            <option value="all">All Roles</option>
+            <option value="active">Active</option>
+            <option value="pending">Pending</option>
+            <option value="admin">Admins</option>
+            <option value="staff">Staff</option>
           </select>
-          <i className="ti ti-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-sol-dark/40 pointer-events-none"></i>
+          <i className="ti ti-chevron-down absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 text-sol-dark/40 pointer-events-none text-xs sm:text-base"></i>
         </div>
       </div>
 
       {/* Main Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-sol-dark/10 overflow-hidden">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-sol-dark/10 overflow-hidden">
         {isLoading ? (
           <div className="p-12 text-center text-sol-dark/50">
             <i className="ti ti-loader animate-spin text-3xl mb-3 block text-sol-yellow"></i>
             Loading staff directory...
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="w-full">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-[#f8f7f2] border-b border-sol-dark/10 text-xs uppercase tracking-wider text-sol-dark/50 font-bold">
-                  <th className="px-6 py-4">Name & Role</th>
-                  <th className="px-6 py-4">Contact</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                <tr className="bg-[#f8f7f2] border-b border-sol-dark/10 text-[9px] sm:text-xs uppercase tracking-wider text-sol-dark/50 font-bold">
+                  <th className="px-3 sm:px-6 py-3 sm:py-4">Name & Role</th>
+                  {/* Dedicated Contact column hidden on phones */}
+                  <th className="hidden md:table-cell px-6 py-4">Contact</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4">Status</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-sol-dark/5">
@@ -162,80 +162,90 @@ export default function StaffManagementPage() {
                   <tr key={user.user_id} className="hover:bg-sol-cream/20 transition-colors">
                     
                     {/* Name & Role Column */}
-                    <td className="px-6 py-4">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 align-top sm:align-middle min-w-0">
                       {editingId === user.user_id ? (
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 mb-1">
                           <input
                             type="text"
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            className="border border-sol-dark/20 rounded px-2 py-1 text-sm font-bold text-sol-dark focus:outline-none focus:border-sol-yellow"
+                            className="border border-sol-dark/20 rounded px-2 py-1 text-[10px] sm:text-sm font-bold text-sol-dark focus:outline-none focus:border-sol-yellow w-full max-w-[150px]"
                             autoFocus
                           />
-                          <button onClick={() => saveName(user.user_id)} className="text-green-600 hover:text-green-700 bg-green-50 p-1 rounded">
-                            <i className="ti ti-check font-bold"></i>
-                          </button>
-                          <button onClick={() => setEditingId(null)} className="text-red-500 hover:text-red-600 bg-red-50 p-1 rounded">
-                            <i className="ti ti-x font-bold"></i>
-                          </button>
+                          <div className="flex gap-1">
+                            <button onClick={() => saveName(user.user_id)} className="text-green-600 hover:text-green-700 bg-green-50 p-1 rounded">
+                              <i className="ti ti-check font-bold text-xs sm:text-base"></i>
+                            </button>
+                            <button onClick={() => setEditingId(null)} className="text-red-500 hover:text-red-600 bg-red-50 p-1 rounded">
+                              <i className="ti ti-x font-bold text-xs sm:text-base"></i>
+                            </button>
+                          </div>
                         </div>
                       ) : (
-                        <div className="font-bold text-sol-dark flex items-center gap-2 mb-1 group">
-                          {user.full_name}
+                        <div className="font-bold text-sol-dark flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 mb-0.5 sm:mb-1 group break-words text-[11px] sm:text-sm">
+                          <span className="line-clamp-2">{user.full_name}</span>
                           
-                          {/* THE ROLE BADGE */}
-                          {user.role_id === 1 ? (
-                             <span className="bg-sol-dark text-sol-yellow text-[9px] uppercase px-2 py-0.5 rounded-full tracking-wide">Admin</span>
-                          ) : (
-                             <span className="bg-sol-dark/10 text-sol-dark/60 text-[9px] uppercase px-2 py-0.5 rounded-full tracking-wide">Staff</span>
-                          )}
+                          <div className="flex items-center gap-1">
+                            {user.role_id === 1 ? (
+                               <span className="bg-sol-dark text-sol-yellow text-[7px] sm:text-[9px] uppercase px-1.5 sm:px-2 py-0.5 rounded-full tracking-wide shrink-0">Admin</span>
+                            ) : (
+                               <span className="bg-sol-dark/10 text-sol-dark/60 text-[7px] sm:text-[9px] uppercase px-1.5 sm:px-2 py-0.5 rounded-full tracking-wide shrink-0">Staff</span>
+                            )}
 
-                          <button 
-                            onClick={() => { setEditingId(user.user_id); setEditName(user.full_name); }}
-                            className="text-sol-dark/30 hover:text-sol-yellow opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Edit Name"
-                          >
-                            <i className="ti ti-edit"></i>
-                          </button>
+                            <button 
+                              onClick={() => { setEditingId(user.user_id); setEditName(user.full_name); }}
+                              className="text-sol-dark/30 hover:text-sol-yellow lg:opacity-0 group-hover:opacity-100 transition-opacity ml-1"
+                              title="Edit Name"
+                            >
+                              <i className="ti ti-edit text-xs sm:text-base"></i>
+                            </button>
+                          </div>
                         </div>
                       )}
-                      <div className="text-xs text-sol-dark/50">@{user.username}</div>
+                      
+                      <div className="text-[9px] sm:text-xs text-sol-dark/50 truncate max-w-[120px] sm:max-w-none">@{user.username}</div>
+                      
+                      {/* FIX: Email visibly embedded here ONLY for mobile screens */}
+                      <div className="md:hidden text-[9px] text-sol-dark/60 flex items-center gap-1 mt-0.5 truncate max-w-[140px]">
+                        <i className="ti ti-mail shrink-0"></i> <span className="truncate">{user.email}</span>
+                      </div>
+                      
                     </td>
                     
-                    {/* Contact Column */}
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-sol-dark/80 flex items-center gap-2">
-                        <i className="ti ti-mail text-sol-dark/40"></i> {user.email}
+                    {/* Dedicated Contact Column - Visible only on tablet/desktop */}
+                    <td className="hidden md:table-cell px-6 py-4 align-middle min-w-0">
+                      <div className="text-sm text-sol-dark/80 flex items-center gap-2 truncate">
+                        <i className="ti ti-mail text-sol-dark/40 shrink-0"></i> <span className="truncate">{user.email}</span>
                       </div>
                     </td>
                     
                     {/* Status Badge Column */}
-                    <td className="px-6 py-4">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 align-top sm:align-middle">
                       {user.is_active ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Active
+                        <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-xs font-bold bg-green-100 text-green-700 border border-green-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 hidden sm:inline-block"></span> Active
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"></span> Pending
+                        <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse hidden sm:inline-block"></span> Pending
                         </span>
                       )}
                     </td>
                     
                     {/* Action Buttons Column */}
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-right align-top sm:align-middle">
+                      <div className="flex flex-col xl:flex-row items-end sm:items-center justify-end gap-1.5 sm:gap-2">
                         {user.is_active ? (
                           <button 
                             onClick={() => toggleApproval(user.user_id, user.is_active, user.email, user.full_name || user.username)}
-                            className="text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg transition-colors border border-red-100"
+                            className="text-[9px] sm:text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2 sm:px-4 py-1 sm:py-2 rounded-md sm:rounded-lg transition-colors border border-red-100 whitespace-nowrap"
                           >
                             Revoke
                           </button>
                         ) : (
                           <button 
                             onClick={() => toggleApproval(user.user_id, user.is_active, user.email, user.full_name || user.username)}
-                            className="text-xs font-bold text-sol-dark bg-sol-yellow hover:bg-yellow-400 px-4 py-2 rounded-lg transition-colors shadow-sm"
+                            className="text-[9px] sm:text-xs font-bold text-sol-dark bg-sol-yellow hover:bg-yellow-400 px-2 sm:px-4 py-1 sm:py-2 rounded-md sm:rounded-lg transition-colors shadow-sm whitespace-nowrap"
                           >
                             Approve
                           </button>
@@ -243,10 +253,10 @@ export default function StaffManagementPage() {
                         
                         <button 
                           onClick={() => deleteUser(user.user_id)}
-                          className="text-sol-dark/30 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors ml-1"
+                          className="text-sol-dark/30 hover:text-red-600 hover:bg-red-50 p-1 sm:p-2 rounded-md sm:rounded-lg transition-colors xl:ml-1"
                           title="Permanently Delete User"
                         >
-                          <i className="ti ti-trash text-lg"></i>
+                          <i className="ti ti-trash text-sm sm:text-lg"></i>
                         </button>
                       </div>
                     </td>
@@ -257,18 +267,18 @@ export default function StaffManagementPage() {
                 {/* Empty States */}
                 {!isLoading && staff.length > 0 && filteredStaff.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-16 text-center">
-                      <i className="ti ti-search text-4xl text-sol-dark/20 mb-3 block"></i>
-                      <p className="text-sol-dark/50 font-medium">No accounts match your search.</p>
-                      <button onClick={() => {setSearchQuery(''); setStatusFilter('all');}} className="text-sol-yellow font-bold text-sm mt-2 hover:underline">Clear Filters</button>
+                    <td colSpan={4} className="px-4 sm:px-6 py-12 sm:py-16 text-center">
+                      <i className="ti ti-search text-3xl sm:text-4xl text-sol-dark/20 mb-2 sm:mb-3 block"></i>
+                      <p className="text-sol-dark/50 text-xs sm:text-sm font-medium">No accounts match your search.</p>
+                      <button onClick={() => {setSearchQuery(''); setStatusFilter('all');}} className="text-sol-yellow font-bold text-[10px] sm:text-sm mt-2 hover:underline">Clear Filters</button>
                     </td>
                   </tr>
                 )}
 
                 {!isLoading && staff.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-16 text-center text-sol-dark/50 font-medium">
-                      <i className="ti ti-users text-4xl text-sol-dark/20 mb-3 block"></i>
+                    <td colSpan={4} className="px-4 sm:px-6 py-12 sm:py-16 text-center text-sol-dark/50 text-xs sm:text-sm font-medium">
+                      <i className="ti ti-users text-3xl sm:text-4xl text-sol-dark/20 mb-2 sm:mb-3 block"></i>
                       No staff accounts found in the database.
                     </td>
                   </tr>
