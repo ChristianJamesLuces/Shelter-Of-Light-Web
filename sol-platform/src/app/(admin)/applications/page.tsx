@@ -105,7 +105,8 @@ export default function ApplicationsPipelinePage() {
       {/* Header Section */}
       <div className="mb-4 sm:mb-6 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-2 sm:gap-4 shrink-0">
         <div>
-          <h1 className="text-xl sm:text-3xl font-serif font-bold text-sol-dark mb-1 sm:mb-2">Adoption Pipeline</h1>
+          {/* UPDATED: Changed from Adoption Pipeline to Adoption Tracker */}
+          <h1 className="text-xl sm:text-3xl font-serif font-bold text-sol-dark mb-1 sm:mb-2">Adoption Tracker</h1>
           <p className="text-sol-dark/60 text-xs sm:text-sm">Track and manage applicants through the 3-step adoption process.</p>
         </div>
         <div className="flex items-center gap-2 w-full lg:w-auto">
@@ -179,9 +180,10 @@ export default function ApplicationsPipelinePage() {
             </div>
           </div>
 
-          {/* Active Pipeline Section */}
+          {/* Active Applications Section */}
           <div>
-            <h2 className="font-serif font-bold text-sol-dark text-base sm:text-xl border-b border-sol-dark/10 pb-1 sm:pb-2 mb-2 sm:mb-4">Active Pipeline</h2>
+            {/* UPDATED: Changed from Active Pipeline to Active Applications */}
+            <h2 className="font-serif font-bold text-sol-dark text-base sm:text-xl border-b border-sol-dark/10 pb-1 sm:pb-2 mb-2 sm:mb-4">Active Applications</h2>
             
             <div className="grid grid-cols-3 gap-1 sm:gap-4 md:gap-6 h-[400px] sm:h-[500px] items-start w-full">
               {columns.map((col) => (
@@ -213,21 +215,29 @@ export default function ApplicationsPipelinePage() {
                           <span className="truncate">For: <span className="font-bold">{app.animal_name || 'Unknown Animal'}</span></span>
                         </div>
                         
+                        {/* ---------------------------------------------------- */}
+                        {/* UPDATED BUTTON LAYOUT FIX: Passed & Reject scaling   */}
+                        {/* ---------------------------------------------------- */}
                         <div className="flex flex-col xl:flex-row gap-1 sm:gap-2 mt-auto pt-1.5 sm:pt-3 border-t border-sol-dark/5">
                           
-                          <div className="flex gap-1 sm:gap-2 w-full">
+                          {/* Left Controls (Back & Reject) */}
+                          <div className="flex gap-1 sm:gap-2 w-full xl:w-auto xl:flex-1">
                             {col.prevStatus && (
                               <button onClick={() => updateStatus(app.application_id, col.prevStatus)} disabled={isUpdating} className="px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-sol-dark/30 hover:text-sol-dark hover:bg-sol-dark/5 transition-colors disabled:opacity-50 shrink-0" title="Move Backwards">
                                 <i className="ti ti-arrow-left font-bold text-[8px] sm:text-sm"></i>
                               </button>
                             )}
-                            <button onClick={() => updateStatus(app.application_id, 'rejected')} disabled={isUpdating} className={`px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[7px] sm:text-[10px] font-bold text-sol-dark/40 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 ${!col.prevStatus ? 'flex-1' : ''}`}>Reject</button>
+                            <button onClick={() => updateStatus(app.application_id, 'rejected')} disabled={isUpdating} className="px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[7px] sm:text-[10px] font-bold text-sol-dark/40 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 flex-1">
+                              Reject
+                            </button>
                           </div>
 
-                          <button onClick={() => updateStatus(app.application_id, col.nextStatus)} disabled={isUpdating} className={`w-full xl:w-auto flex-1 px-1 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[7px] sm:text-[10px] font-bold uppercase tracking-wide transition-colors disabled:opacity-50 border truncate ${col.color}`}>
+                          {/* Right Controls (Pass / Next Phase) */}
+                          <button onClick={() => updateStatus(app.application_id, col.nextStatus)} disabled={isUpdating} className={`w-full xl:w-auto px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[7px] sm:text-[10px] font-bold uppercase tracking-wide transition-colors disabled:opacity-50 border shrink-0 whitespace-nowrap ${col.color}`}>
                             {col.nextLabel}
                           </button>
                         </div>
+                        {/* ---------------------------------------------------- */}
 
                       </div>
                     ))}
