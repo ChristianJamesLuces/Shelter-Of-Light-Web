@@ -47,6 +47,7 @@ The codebase utilizes Next.js Route Groups to separate public pages from the sec
 ├── server.ts                      # Backend server configuration
 ├── tailwind.config.ts             # Tailwind CSS configuration
 └── tsconfig.json                  # TypeScript configuration
+```
 
 ## 🚀 Getting Started
 
