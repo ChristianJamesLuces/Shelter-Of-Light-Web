@@ -16,20 +16,37 @@ This project is built with a modern, full-stack JavaScript ecosystem.
 
 The codebase utilizes Next.js Route Groups to separate public pages from the secure staff portal cleanly. All main development happens inside the `sol-platform` directory.
 
-### Core Directories
-* `src/app/(public)/`: Contains all client-facing pages.
-    * `/adopt`: Animal gallery and individual animal profiles.
-    * `/adopt/[id]/apply`: Adoption application forms.
-    * `/donate`: Donation page supporting multiple payment methods.
-    * `/about`: Information about the shelter.
-* `src/app/(admin)/`: Contains the secure staff portal.
-    * `/dashboard`: High-level overview and metrics.
-    * `/animals`: Inventory management (Create, Read, Update, Delete records).
-    * `/adoptions` & `/applications`: Application tracking and processing.
-* `src/app/login/` & `/reset-password`: Authentication routes.
-* `src/components/`: Reusable UI components, split into `/admin` and `/public` directories.
-* `src/services/`: Backend logic, such as data fetching (`animals.ts`).
-* `public/`: Static assets like logos and payment QR codes (GCash, Maya, PayPal).
+```text
+/
+├── public/                        # Static assets (logos, payment QR codes)
+├── src/                           
+│   ├── app/                       
+│   │   ├── (admin)/               # Secure staff portal
+│   │   │   ├── adoptions/         # Application tracking
+│   │   │   ├── animals/           # Inventory management (CRUD)
+│   │   │   ├── applications/      # Application processing
+│   │   │   └── dashboard/         # High-level overview and metrics
+│   │   ├── (public)/              # Client-facing pages
+│   │   │   ├── about/             # Shelter information
+│   │   │   ├── adopt/             # Animal gallery and profiles
+│   │   │   │   └── [id]/apply/    # Adoption application forms
+│   │   │   └── donate/            # Donation page 
+│   │   ├── actions/               
+│   │   │   └── email.ts           # Custom email integrations
+│   │   ├── login/                 # Authentication routes
+│   │   └── reset-password/        # Password recovery routes
+│   ├── components/                # Reusable UI components
+│   │   ├── admin/                 # Admin-specific components
+│   │   └── public/                # Public-facing components
+│   ├── lib/                       
+│   │   └── supabase/              
+│   │       └── client.ts          # Supabase client setup
+│   └── services/                  
+│       └── animals.ts             # Backend logic & data fetching
+├── .env.local                     # Environment variables
+├── server.ts                      # Backend server configuration
+├── tailwind.config.ts             # Tailwind CSS configuration
+└── tsconfig.json                  # TypeScript configuration
 
 ## 🚀 Getting Started
 
